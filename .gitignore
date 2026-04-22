@@ -1,0 +1,45 @@
+# --- Сборка и бинарники ---
+*.o
+*.obj
+*.a
+*.lib
+*.so
+*.dll
+*.exe
+*.bin
+*.elf
+*.iso
+*.img
+
+# --- Директории сборки ---
+build/
+bin/
+obj/
+dist/
+target/
+
+# --- Логи и дампы (Эмуляторы и отладка) ---
+*.log
+*.vmdk
+*.vdi
+core
+gmon.out
+qemu-*.log
+
+# --- Зависимости (если используешь менеджеры пакетов) ---
+node_modules/
+.pnpm-store/
+Cargo.lock
+
+# --- Настройки IDE и редакторов ---
+.vscode/
+.idea/
+*.swp
+*.swo
+.DS_Store
+*.sublime-project
+*.sublime-workspace
+
+# --- Временные файлы ---
+*.tmp
+*.bak
