@@ -1,4 +1,4 @@
-# Makefile для Nyrix OS с i686-elf кросс-компилятором
+# Makefile для Nyrix OS
 CXX = i686-elf-g++
 ASM = nasm
 LD = i686-elf-ld
@@ -12,10 +12,16 @@ SRC_DIR = src
 ISO_DIR = iso
 
 KERNEL_BIN = $(BUILD_DIR)/nyrix.bin
-ISO_IMAGE = $(BUILD_DIR)/nyrix.iso
+ISO_IMAGE  = $(BUILD_DIR)/nyrix.iso
 
 OBJS = $(BUILD_DIR)/boot.o \
-       $(BUILD_DIR)/kernel.o
+       $(BUILD_DIR)/gdt_flush.o \
+       $(BUILD_DIR)/interrupts.o \
+       $(BUILD_DIR)/kernel.o \
+       $(BUILD_DIR)/gdt.o \
+       $(BUILD_DIR)/idt.o \
+       $(BUILD_DIR)/keyboard.o
+
 
 all: $(ISO_IMAGE)
 
@@ -25,7 +31,22 @@ $(BUILD_DIR):
 $(BUILD_DIR)/boot.o: $(SRC_DIR)/boot/boot.asm | $(BUILD_DIR)
 	$(ASM) $(ASMFLAGS) $< -o $@
 
+$(BUILD_DIR)/gdt_flush.o: $(SRC_DIR)/boot/gdt_flush.asm | $(BUILD_DIR)
+	$(ASM) $(ASMFLAGS) $< -o $@
+
+$(BUILD_DIR)/interrupts.o: $(SRC_DIR)/boot/interrupts.asm | $(BUILD_DIR)
+	$(ASM) $(ASMFLAGS) $< -o $@
+
+$(BUILD_DIR)/keyboard.o: $(SRC_DIR)/kernel/keyboard.cpp | $(BUILD_DIR)
+	$(CXX) $(CXXFLAGS) -c $< -o $@
+
 $(BUILD_DIR)/kernel.o: $(SRC_DIR)/kernel/kernel.cpp | $(BUILD_DIR)
+	$(CXX) $(CXXFLAGS) -c $< -o $@
+
+$(BUILD_DIR)/gdt.o: $(SRC_DIR)/kernel/gdt.cpp | $(BUILD_DIR)
+	$(CXX) $(CXXFLAGS) -c $< -o $@
+
+$(BUILD_DIR)/idt.o: $(SRC_DIR)/kernel/idt.cpp | $(BUILD_DIR)
 	$(CXX) $(CXXFLAGS) -c $< -o $@
 
 $(KERNEL_BIN): $(OBJS)

@@ -1,11 +1,10 @@
 // src/kernel/kernel.cpp
 // Флаги компиляции важны: -ffreestanding -fno-exceptions -fno-rtti
-
-// Простые типы для удобства
-using uint8_t = unsigned char;
-using uint16_t = unsigned short;
-using uint32_t = unsigned int;
-using size_t = unsigned int;
+#include <stdint.h>
+#include <stddef.h>
+#include "gdt.h"
+#include "idt.h"
+#include "keyboard.h"
 
 // Адрес видеопамяти в текстовом режиме (цветной)
 static uint16_t* const VGA_BUFFER = reinterpret_cast<uint16_t*>(0xB8000);
@@ -22,6 +21,15 @@ inline uint16_t vga_entry(unsigned char ch, uint8_t color) {
     return static_cast<uint16_t>(ch) | (static_cast<uint16_t>(color) << 8);
 }
 
+// Обновление аппаратного курсора
+void update_cursor(size_t row, size_t col) {
+    uint16_t pos = row * VGA_WIDTH + col;
+    outb(0x3D4, 0x0F);
+    outb(0x3D5, (uint8_t)(pos & 0xFF));
+    outb(0x3D4, 0x0E);
+    outb(0x3D5, (uint8_t)((pos >> 8) & 0xFF));
+}
+
 // Очистка экрана
 void terminal_clear() {
     for (size_t y = 0; y < VGA_HEIGHT; ++y) {
@@ -32,6 +40,7 @@ void terminal_clear() {
     }
     terminal_row = 0;
     terminal_column = 0;
+    update_cursor(terminal_row, terminal_column);
 }
 
 // Вывод символа на экран с учётом переносов и скроллинга
@@ -39,9 +48,9 @@ void terminal_putchar(char c) {
     if (c == '\n') {
         terminal_column = 0;
         if (++terminal_row == VGA_HEIGHT) {
-            // Скроллинг (пока пропустим для простоты)
             terminal_row = 0;
         }
+        update_cursor(terminal_row, terminal_column);
         return;
     }
 
@@ -54,6 +63,7 @@ void terminal_putchar(char c) {
             terminal_row = 0;
         }
     }
+    update_cursor(terminal_row, terminal_column);
 }
 
 // Вывод строки
@@ -65,13 +75,17 @@ void terminal_write(const char* str) {
 
 // Точка входа ядра
 extern "C" void kernel_main(unsigned int magic) {
+    GDT::init();
+    IDT::init();
+    Keyboard::init();
+    __asm__ volatile("sti");  // разрешаем аппаратные прерывания
+
     terminal_clear();
     terminal_write("Nyrix Kernel v0.1\n");
     terminal_write("Copyright (c) 2026\n");
     terminal_write("Developed with passion\n");
     terminal_write("Magic number: ");
 
-    // Простой вывод числа в hex (без snprintf)
     char hex_buf[11];
     const char hex_chars[] = "0123456789ABCDEF";
     hex_buf[0] = '0';
@@ -81,8 +95,9 @@ extern "C" void kernel_main(unsigned int magic) {
     }
     hex_buf[10] = '\0';
     terminal_write(hex_buf);
+    terminal_putchar('\n');
 
-    // Бесконечный цикл
+    // Бесконечный цикл ожидания
     while (1) {
         __asm__ volatile("hlt");
     }
