@@ -25,6 +25,7 @@ start:
 
     ; Передача управления C++ ядру
     ; В EAX лежит магическое число Multiboot (можно передать как аргумент)
+    push ebx
     push eax
     call kernel_main
 

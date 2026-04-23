@@ -20,7 +20,10 @@ OBJS = $(BUILD_DIR)/boot.o \
        $(BUILD_DIR)/kernel.o \
        $(BUILD_DIR)/gdt.o \
        $(BUILD_DIR)/idt.o \
-       $(BUILD_DIR)/keyboard.o
+       $(BUILD_DIR)/keyboard.o \
+       $(BUILD_DIR)/pmm.o \
+       $(BUILD_DIR)/kmalloc.o \
+       $(BUILD_DIR)/commands.o
 
 
 all: $(ISO_IMAGE)
@@ -47,6 +50,15 @@ $(BUILD_DIR)/gdt.o: $(SRC_DIR)/kernel/gdt.cpp | $(BUILD_DIR)
 	$(CXX) $(CXXFLAGS) -c $< -o $@
 
 $(BUILD_DIR)/idt.o: $(SRC_DIR)/kernel/idt.cpp | $(BUILD_DIR)
+	$(CXX) $(CXXFLAGS) -c $< -o $@
+
+$(BUILD_DIR)/pmm.o: $(SRC_DIR)/kernel/pmm.cpp | $(BUILD_DIR)
+	$(CXX) $(CXXFLAGS) -c $< -o $@
+
+$(BUILD_DIR)/kmalloc.o: $(SRC_DIR)/kernel/kmalloc.cpp | $(BUILD_DIR)
+	$(CXX) $(CXXFLAGS) -c $< -o $@
+
+$(BUILD_DIR)/commands.o: $(SRC_DIR)/kernel/commands.cpp | $(BUILD_DIR)
 	$(CXX) $(CXXFLAGS) -c $< -o $@
 
 $(KERNEL_BIN): $(OBJS)
