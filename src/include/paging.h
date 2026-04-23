@@ -3,6 +3,7 @@
 #define NYRIX_PAGING_H
 
 #include <stdint.h>
+void paging_init_full();
 void paging_init_simple();
 void paging_init();
 void paging_init_simple();

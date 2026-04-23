@@ -5,6 +5,12 @@
 
 #include "multiboot.h"
 
+// в начало файла
+static bool early_alloc = true;
+
+// функция для отключения раннего режима
+void pmm_set_early_alloc(bool val) { early_alloc = val; }
+
 // Константы
 const size_t PAGE_SIZE = 4096;
 const size_t MAX_MEMORY = 0xFFFFFFFF;  // 4 ГБ (32 бита)
@@ -83,7 +89,13 @@ void pmm_init(uint32_t mmap_addr, uint32_t mmap_length) {
 }
 
 void* pmm_alloc_page() {
-    for (size_t page = 0; page < total_pages; ++page) {
+    size_t start_page = 0;
+    size_t end_page = total_pages;
+    if (early_alloc) {
+        // ограничиваемся первыми 4 МБ (адреса 0..0x3FFFFF)
+        end_page = 0x400000 / PAGE_SIZE;  // 1024 страницы по 4КБ
+    }
+    for (size_t page = start_page; page < end_page; ++page) {
         if (!bitmap_test(page)) {
             bitmap_set(page);
             free_pages--;
