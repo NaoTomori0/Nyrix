@@ -162,7 +162,7 @@ extern "C" void kernel_main(uint32_t magic, void *mb2_info)
     {
         terminal_write("Initializing PMM...\n");
         pmm_init(mmap_addr, mmap_length);
-        terminal_write("PMM works!\n");
+        // terminal_write("PMM works!\n");
     }
     else
     {
@@ -171,11 +171,11 @@ extern "C" void kernel_main(uint32_t magic, void *mb2_info)
 
     terminal_write("Enabling paging (4MB)...\n");
     paging_init_simple();
-    terminal_write("Paging enabled.\n");
+    // terminal_write("Paging enabled.\n");
 
     terminal_write("Initializing kernel heap...\n");
     kmalloc_init();
-    terminal_write("Kernel heap ready.\n");
+    // terminal_write("Kernel heap ready.\n");
 
     pit_init(100);
     tasking_init();
