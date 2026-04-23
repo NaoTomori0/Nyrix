@@ -4,8 +4,9 @@
 
 #include <stdint.h>
 
-class Keyboard {
-   public:
+class Keyboard
+{
+public:
     static void init();
     static void handle_interrupt();
 };

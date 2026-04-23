@@ -7,7 +7,7 @@
 extern uint32_t g_mmap_addr;
 extern uint32_t g_mmap_length;
 
-static uint32_t *page_directory = nullptr;
+uint32_t *page_directory = nullptr;
 const uint32_t PAGE_PRESENT = 1;
 const uint32_t PAGE_WRITABLE = 2;
 const uint32_t PAGE_USER = 4; // ✅ разрешает доступ из Ring 3
@@ -28,6 +28,8 @@ void paging_init_simple()
         simple_pd[i] = 0;
     }
     simple_pd[0] = (uint32_t)simple_pt | PAGE_PRESENT | PAGE_WRITABLE | PAGE_USER;
+
+    page_directory = simple_pd;
 
     // Загружаем CR3 и включаем paging
     uint32_t pd_phys = (uint32_t)simple_pd;
@@ -84,4 +86,26 @@ void paging_init_full()
     __asm__ volatile("ljmp $0x08, $1f\n1:\n");
 
     pmm_set_early_alloc(false);
+}
+
+uint32_t create_address_space()
+{
+    // Выделяем физическую страницу под новый каталог
+    uint32_t *new_pd = (uint32_t *)pmm_alloc_page();
+    if (!new_pd)
+        return 0; // память кончилась
+
+    // Копируем всё из текущего каталога страниц (ядерные записи, включая первые 4 МБ)
+    // В данный момент у нас identity mapping первых 4 МБ. Это и есть ядро.
+    // Мы хотим, чтобы все процессы видели ядро, но не видели память других процессов.
+    // Пока что мы просто копируем весь каталог, но потом обнулим пользовательские записи.
+    extern uint32_t *page_directory; // из paging_init_simple (объявим глобально)
+    for (int i = 0; i < 1024; ++i)
+    {
+        new_pd[i] = page_directory[i];
+    }
+    // Удалим флаг USER со всех PDE/PTE? Пока не будем, потому что пользовательские страницы не выделены.
+    // В будущем при выделении страниц для процесса будем добавлять их сюда.
+
+    return (uint32_t)new_pd;
 }

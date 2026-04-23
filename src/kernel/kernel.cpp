@@ -14,14 +14,15 @@
 // ----- VGA-терминал -----
 static uint16_t *const VGA_BUFFER = reinterpret_cast<uint16_t *>(0xB8000);
 static const size_t VGA_WIDTH = 80, VGA_HEIGHT = 25;
-size_t terminal_row = 0, terminal_column = 0; // глобальные переменные
+size_t terminal_row = 0, terminal_column = 0;
 uint8_t terminal_color = 0x0F;
+extern char input_buffer[256];
+extern size_t input_pos;
 
 static inline uint16_t vga_entry(unsigned char ch, uint8_t color)
 {
     return static_cast<uint16_t>(ch) | (static_cast<uint16_t>(color) << 8);
 }
-
 void update_cursor(size_t row, size_t col)
 {
     uint16_t pos = row * VGA_WIDTH + col;
@@ -30,12 +31,6 @@ void update_cursor(size_t row, size_t col)
     outb(0x3D4, 0x0E);
     outb(0x3D5, (uint8_t)((pos >> 8) & 0xFF));
 }
-
-void terminal_setcolor(uint8_t new_color)
-{
-    terminal_color = new_color;
-}
-
 static void vga_scroll()
 {
     for (size_t y = 1; y < VGA_HEIGHT; ++y)
@@ -44,7 +39,6 @@ static void vga_scroll()
     for (size_t x = 0; x < VGA_WIDTH; ++x)
         VGA_BUFFER[(VGA_HEIGHT - 1) * VGA_WIDTH + x] = vga_entry(' ', terminal_color);
 }
-
 void terminal_clear()
 {
     for (size_t y = 0; y < VGA_HEIGHT; ++y)
@@ -53,7 +47,6 @@ void terminal_clear()
     terminal_row = terminal_column = 0;
     update_cursor(terminal_row, terminal_column);
 }
-
 void terminal_putchar(char c)
 {
     if (c == '\n')
@@ -92,7 +85,6 @@ void terminal_putchar(char c)
     }
     update_cursor(terminal_row, terminal_column);
 }
-
 void terminal_write(const char *str)
 {
     while (*str)
@@ -100,31 +92,6 @@ void terminal_write(const char *str)
 }
 
 extern void process_command(const char *cmd);
-
-// ----- Буфер ввода и редактор (для keyboard) -----
-extern char input_buffer[256];
-extern size_t input_pos;
-
-void redraw_input()
-{
-    size_t prompt_len = 7; // "nyrix> "
-    // Очищаем текущую строку
-    for (size_t i = 0; i < VGA_WIDTH; ++i)
-    {
-        VGA_BUFFER[terminal_row * VGA_WIDTH + i] = vga_entry(' ', terminal_color);
-    }
-    // Выводим приглашение и содержимое буфера
-    for (size_t i = 0; i < prompt_len; ++i)
-    {
-        VGA_BUFFER[terminal_row * VGA_WIDTH + i] = vga_entry(("nyrix> ")[i], terminal_color);
-    }
-    for (size_t i = 0; i < input_pos; ++i)
-    {
-        VGA_BUFFER[terminal_row * VGA_WIDTH + prompt_len + i] = vga_entry(input_buffer[i], terminal_color);
-    }
-    terminal_column = prompt_len + input_pos;
-    update_cursor(terminal_row, terminal_column);
-}
 
 // ----- Точка входа -----
 extern "C" void kernel_main(uint32_t magic, void *mb2_info)
@@ -156,7 +123,7 @@ extern "C" void kernel_main(uint32_t magic, void *mb2_info)
     __asm__ volatile("sti");
 
     terminal_clear();
-    terminal_write("Nyrix Kernel v0.2\n");
+    terminal_write("Nyrix Kernel v0.2 (stable)\n");
 
     if (mmap_addr)
     {
@@ -188,4 +155,23 @@ extern "C" void kernel_main(uint32_t magic, void *mb2_info)
     {
         __asm__ volatile("hlt");
     }
+}
+
+void redraw_input()
+{
+    size_t prompt_len = 7; // "nyrix> "
+    for (size_t i = 0; i < VGA_WIDTH; ++i)
+        VGA_BUFFER[terminal_row * VGA_WIDTH + i] = vga_entry(' ', terminal_color);
+    for (size_t i = 0; i < prompt_len; ++i)
+        VGA_BUFFER[terminal_row * VGA_WIDTH + i] = vga_entry(("nyrix> ")[i], terminal_color);
+    for (size_t i = 0; i < input_pos; ++i)
+        VGA_BUFFER[terminal_row * VGA_WIDTH + prompt_len + i] = vga_entry(input_buffer[i], terminal_color);
+    terminal_column = prompt_len + input_pos;
+    update_cursor(terminal_row, terminal_column);
+}
+
+// Установка цвета терминала
+void terminal_setcolor(uint8_t color)
+{
+    terminal_color = color;
 }

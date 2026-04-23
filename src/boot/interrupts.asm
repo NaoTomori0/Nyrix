@@ -3,11 +3,10 @@ bits 32
 
 global idt_flush
 global isr_stub_table
-global isr_syscall
 
 extern fault_handler
 extern irq_handler
-extern syscall_handler
+
 
 ; ------------------------------
 ; Загрузка IDT
@@ -99,30 +98,7 @@ IRQ 13, 45
 IRQ 14, 46
 IRQ 15, 47
 
-; ------------------------------
-; Обработчик системного вызова (int 0x80)
-; ------------------------------
-isr_syscall:
-    pusha
-    push ds
-    push es
-    push fs
-    push gs
 
-    mov ax, 0x10        ; сегменты ядра
-    mov ds, ax
-    mov es, ax
-    mov fs, ax
-    mov gs, ax
-
-    call syscall_handler
-
-    pop gs
-    pop fs
-    pop es
-    pop ds
-    popa
-    iret
 
 ; ------------------------------
 ; Общий обработчик исключений

@@ -1,17 +1,15 @@
 // src/kernel/user.cpp
 #include "user.h"
 #include <stdint.h>
-#include "idt.h" // inb, outb
 
 __attribute__((aligned(16))) static uint8_t user_stack[16384];
 
 void user_task()
 {
-    const char *msg = "Hello from Nyrix user mode!\n";
+    const char *msg = "Hello from Ring 3!\n";
     while (1)
     {
-        // Системный вызов write (код 1): вывод строки
-        __asm__ volatile("int $0x80" : : "a"(1), "b"(msg), "c"(28));
+        __asm__ volatile("int $0x80" : : "a"(1), "b"(msg), "c"(18));
         for (volatile int i = 0; i < 10000000; ++i)
             ;
     }
@@ -19,20 +17,16 @@ void user_task()
 
 void switch_to_user_mode()
 {
-    // Запрещаем прерывания и маскируем таймер
+    // Запрещаем прерывания
     __asm__ volatile("cli");
-    uint8_t mask = inb(0x21);
-    outb(0x21, mask | 0x01);
-    extern void task_disable_test();
-    task_disable_test();
 
-    // Устанавливаем пользовательские сегменты данных
+    // Устанавливаем пользовательские сегменты
     __asm__ volatile("mov %0, %%ds" : : "r"(0x23));
     __asm__ volatile("mov %0, %%es" : : "r"(0x23));
     __asm__ volatile("mov %0, %%fs" : : "r"(0x23));
     __asm__ volatile("mov %0, %%gs" : : "r"(0x23));
 
-    // Готовим стек для iret
+    // Готовим стек для iret (используем ядерное адресное пространство)
     uint32_t *sp = (uint32_t *)(&user_stack[sizeof(user_stack) - sizeof(uint32_t)]);
     *(--sp) = 0x23;                 // SS
     *(--sp) = (uint32_t)(sp + 1);   // ESP
@@ -40,7 +34,7 @@ void switch_to_user_mode()
     *(--sp) = 0x1B;                 // CS
     *(--sp) = (uint32_t)&user_task; // EIP
 
-    // Переход в Ring 3
+    // Переход в Ring 3 (CR3 не меняем!)
     __asm__ volatile(
         "mov %0, %%esp\n"
         "iret\n"
