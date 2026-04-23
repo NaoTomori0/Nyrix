@@ -14,6 +14,10 @@ static uint32_t* bitmap = nullptr;
 static size_t total_pages = 0;
 static size_t free_pages = 0;
 
+// глобальные координаты карты памяти (будем использовать в paging)
+uint32_t g_mmap_addr = 0;
+uint32_t g_mmap_length = 0;
+
 // Вспомогательные функции
 static inline void bitmap_set(size_t page) {
     bitmap[page / 32] |= (1 << (page % 32));
@@ -28,6 +32,8 @@ static inline bool bitmap_test(size_t page) {
 }
 
 void pmm_init(uint32_t mmap_addr, uint32_t mmap_length) {
+    g_mmap_addr = mmap_addr;
+    g_mmap_length = mmap_length;
     // Сначала отмечаем всю память как занятую
     total_pages = MAX_MEMORY / PAGE_SIZE;
     size_t bitmap_size = total_pages / 8;  // в байтах

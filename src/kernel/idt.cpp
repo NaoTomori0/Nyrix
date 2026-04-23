@@ -4,6 +4,8 @@
 #include "keyboard.h"
 #include "paging.h"
 
+extern void task_switch();
+
 static IDTEntry idt_entries[256];
 static IDTPtr idt_ptr;
 
@@ -42,6 +44,10 @@ extern "C" void irq_handler(Registers* regs) {
     // Здесь в будущем будет диспетчеризация по драйверам
     if (regs->int_no == 33) {  // IRQ1 = клавиатура
         Keyboard::handle_interrupt();
+    }
+
+    if (regs->int_no == 32) {  // IRQ0
+        task_switch();
     }
 }
 

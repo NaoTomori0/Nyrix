@@ -17,6 +17,7 @@ ISO_IMAGE  = $(BUILD_DIR)/nyrix.iso
 OBJS = $(BUILD_DIR)/boot.o \
        $(BUILD_DIR)/gdt_flush.o \
        $(BUILD_DIR)/interrupts.o \
+       $(BUILD_DIR)/task_switch.o \
        $(BUILD_DIR)/kernel.o \
        $(BUILD_DIR)/gdt.o \
        $(BUILD_DIR)/idt.o \
@@ -24,7 +25,9 @@ OBJS = $(BUILD_DIR)/boot.o \
        $(BUILD_DIR)/pmm.o \
        $(BUILD_DIR)/kmalloc.o \
        $(BUILD_DIR)/commands.o \
-	   $(BUILD_DIR)/paging.o
+       $(BUILD_DIR)/paging.o \
+       $(BUILD_DIR)/pit.o \
+       $(BUILD_DIR)/task.o
 
 
 all: $(ISO_IMAGE)
@@ -64,6 +67,15 @@ $(BUILD_DIR)/commands.o: $(SRC_DIR)/kernel/commands.cpp | $(BUILD_DIR)
 
 $(BUILD_DIR)/paging.o: $(SRC_DIR)/kernel/paging.cpp | $(BUILD_DIR)
 	$(CXX) $(CXXFLAGS) -c $< -o $@
+
+$(BUILD_DIR)/pit.o: $(SRC_DIR)/kernel/pit.cpp | $(BUILD_DIR)
+	$(CXX) $(CXXFLAGS) -c $< -o $@
+
+$(BUILD_DIR)/task.o: $(SRC_DIR)/kernel/task.cpp | $(BUILD_DIR)
+	$(CXX) $(CXXFLAGS) -c $< -o $@
+
+$(BUILD_DIR)/task_switch.o: $(SRC_DIR)/boot/task_switch.asm | $(BUILD_DIR)
+	$(ASM) $(ASMFLAGS) $< -o $@
 
 $(KERNEL_BIN): $(OBJS)
 	$(LD) $(LDFLAGS) -o $@ $^
