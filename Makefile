@@ -27,8 +27,9 @@ OBJS = $(BUILD_DIR)/boot.o \
        $(BUILD_DIR)/commands.o \
        $(BUILD_DIR)/paging.o \
        $(BUILD_DIR)/pit.o \
-       $(BUILD_DIR)/task.o
-
+       $(BUILD_DIR)/task.o \
+       $(BUILD_DIR)/tss.o \
+       $(BUILD_DIR)/user.o
 
 all: $(ISO_IMAGE)
 
@@ -44,8 +45,8 @@ $(BUILD_DIR)/gdt_flush.o: $(SRC_DIR)/boot/gdt_flush.asm | $(BUILD_DIR)
 $(BUILD_DIR)/interrupts.o: $(SRC_DIR)/boot/interrupts.asm | $(BUILD_DIR)
 	$(ASM) $(ASMFLAGS) $< -o $@
 
-$(BUILD_DIR)/keyboard.o: $(SRC_DIR)/kernel/keyboard.cpp | $(BUILD_DIR)
-	$(CXX) $(CXXFLAGS) -c $< -o $@
+$(BUILD_DIR)/task_switch.o: $(SRC_DIR)/boot/task_switch.asm | $(BUILD_DIR)
+	$(ASM) $(ASMFLAGS) $< -o $@
 
 $(BUILD_DIR)/kernel.o: $(SRC_DIR)/kernel/kernel.cpp | $(BUILD_DIR)
 	$(CXX) $(CXXFLAGS) -c $< -o $@
@@ -54,6 +55,9 @@ $(BUILD_DIR)/gdt.o: $(SRC_DIR)/kernel/gdt.cpp | $(BUILD_DIR)
 	$(CXX) $(CXXFLAGS) -c $< -o $@
 
 $(BUILD_DIR)/idt.o: $(SRC_DIR)/kernel/idt.cpp | $(BUILD_DIR)
+	$(CXX) $(CXXFLAGS) -c $< -o $@
+
+$(BUILD_DIR)/keyboard.o: $(SRC_DIR)/kernel/keyboard.cpp | $(BUILD_DIR)
 	$(CXX) $(CXXFLAGS) -c $< -o $@
 
 $(BUILD_DIR)/pmm.o: $(SRC_DIR)/kernel/pmm.cpp | $(BUILD_DIR)
@@ -74,8 +78,11 @@ $(BUILD_DIR)/pit.o: $(SRC_DIR)/kernel/pit.cpp | $(BUILD_DIR)
 $(BUILD_DIR)/task.o: $(SRC_DIR)/kernel/task.cpp | $(BUILD_DIR)
 	$(CXX) $(CXXFLAGS) -c $< -o $@
 
-$(BUILD_DIR)/task_switch.o: $(SRC_DIR)/boot/task_switch.asm | $(BUILD_DIR)
-	$(ASM) $(ASMFLAGS) $< -o $@
+$(BUILD_DIR)/tss.o: $(SRC_DIR)/kernel/tss.cpp | $(BUILD_DIR)
+	$(CXX) $(CXXFLAGS) -c $< -o $@
+
+$(BUILD_DIR)/user.o: $(SRC_DIR)/kernel/user.cpp | $(BUILD_DIR)
+	$(CXX) $(CXXFLAGS) -c $< -o $@
 
 $(KERNEL_BIN): $(OBJS)
 	$(LD) $(LDFLAGS) -o $@ $^
@@ -86,13 +93,13 @@ $(ISO_IMAGE): $(KERNEL_BIN)
 	echo 'set timeout=0' > $(ISO_DIR)/boot/grub/grub.cfg
 	echo 'set default=0' >> $(ISO_DIR)/boot/grub/grub.cfg
 	echo 'menuentry "Nyrix OS" {' >> $(ISO_DIR)/boot/grub/grub.cfg
-	echo '    multiboot /boot/nyrix.bin' >> $(ISO_DIR)/boot/grub/grub.cfg
+	echo '    multiboot2 /boot/nyrix.bin' >> $(ISO_DIR)/boot/grub/grub.cfg
 	echo '    boot' >> $(ISO_DIR)/boot/grub/grub.cfg
 	echo '}' >> $(ISO_DIR)/boot/grub/grub.cfg
 	grub-mkrescue -o $@ $(ISO_DIR) 2>/dev/null
 
 run: $(ISO_IMAGE)
-	qemu-system-i386 -cdrom $(ISO_IMAGE)
+	qemu-system-i386 -cdrom $(ISO_IMAGE) -vga std
 
 clean:
 	rm -rf $(BUILD_DIR) $(ISO_DIR)

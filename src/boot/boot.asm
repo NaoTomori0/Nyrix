@@ -1,42 +1,49 @@
 ; src/boot/boot.asm
-; Формат вывода: 32-битный elf (i386)
 bits 32
 
-; Мультизагрузочные константы
-MAGIC    equ 0x1BADB002      ; Магическое число
-FLAGS    equ 0x00000003      ; Выравнивание модулей + информация о памяти
-CHECKSUM equ -(MAGIC + FLAGS)
+MULTIBOOT2_HEADER_MAGIC equ 0xE85250D6
+ARCHITECTURE_I386       equ 0
+HEADER_LENGTH           equ (multiboot2_header_end - multiboot2_header)
+CHECKSUM                equ -(MULTIBOOT2_HEADER_MAGIC + ARCHITECTURE_I386 + HEADER_LENGTH)
 
-; Секция .multiboot должна быть первой в файле
 section .multiboot
-align 4
-    dd MAGIC
-    dd FLAGS
+align 8
+multiboot2_header:
+    dd MULTIBOOT2_HEADER_MAGIC
+    dd ARCHITECTURE_I386
+    dd HEADER_LENGTH
     dd CHECKSUM
 
-; Секция .text содержит код
+    ; Тег карты памяти (type=6)
+    align 8
+    dw 6
+    dw 0
+    dd 16
+    dd 0
+    dd 0
+
+    ; Завершающий тег
+    align 8
+    dw 0
+    dw 0
+    dd 8
+multiboot2_header_end:
+
 section .text
 global start
-extern kernel_main          ; Функция ядра на C++
+extern kernel_main
 
 start:
-    ; Установка стека (растёт вниз от 0x00200000)
     mov esp, stack_top
-
-    ; Передача управления C++ ядру
-    ; В EAX лежит магическое число Multiboot (можно передать как аргумент)
-    push ebx
-    push eax
+    push ebx                 ; Multiboot2 info pointer
+    push eax                 ; magic (0x36D76289)
     call kernel_main
-
-    ; Если ядро вернулось, зависаем
     cli
     hlt
     jmp $
 
-; Секция .bss для неинициализированных данных (стек)
 section .bss
 align 16
 stack_bottom:
-    resb 16384            ; 16 КБ для стека
+    resb 16384
 stack_top:

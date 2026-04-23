@@ -3,9 +3,11 @@ bits 32
 
 global idt_flush
 global isr_stub_table
+global isr_syscall
 
 extern fault_handler
 extern irq_handler
+extern syscall_handler
 
 ; ------------------------------
 ; Загрузка IDT
@@ -21,8 +23,8 @@ idt_flush:
 %macro ISR_NOERRCODE 1
 global isr%1
 isr%1:
-    push 0          ; фиктивный код ошибки
-    push %1         ; номер прерывания
+    push 0
+    push %1
     jmp isr_common
 %endmacro
 
@@ -98,31 +100,53 @@ IRQ 14, 46
 IRQ 15, 47
 
 ; ------------------------------
-; Общий обработчик исключений
+; Обработчик системного вызова (int 0x80)
 ; ------------------------------
-isr_common:
-    pusha           ; сохраняем все регистры общего назначения
+isr_syscall:
+    pusha
     push ds
     push es
     push fs
     push gs
 
-    mov ax, 0x10    ; загружаем сегмент данных ядра
+    mov ax, 0x10        ; сегменты ядра
     mov ds, ax
     mov es, ax
     mov fs, ax
     mov gs, ax
 
-    push esp        ; передаём указатель на вершину стека (структура Registers)
-    call fault_handler
-    add esp, 4
+    call syscall_handler
 
     pop gs
     pop fs
     pop es
     pop ds
     popa
-    add esp, 8      ; удаляем int_no и err_code
+    iret
+
+; ------------------------------
+; Общий обработчик исключений
+; ------------------------------
+isr_common:
+    pusha
+    push ds
+    push es
+    push fs
+    push gs
+    mov ax, 0x10
+    mov ds, ax
+    mov es, ax
+    mov fs, ax
+    mov gs, ax
+    push esp
+    call fault_handler
+    add esp, 4
+    pop gs
+    pop fs
+    pop es
+    pop ds
+    popa
+    add esp, 8
     iret
 
 ; ------------------------------
@@ -134,17 +158,14 @@ irq_common:
     push es
     push fs
     push gs
-
     mov ax, 0x10
     mov ds, ax
     mov es, ax
     mov fs, ax
     mov gs, ax
-
     push esp
     call irq_handler
     add esp, 4
-
     pop gs
     pop fs
     pop es
@@ -154,7 +175,7 @@ irq_common:
     iret
 
 ; ------------------------------
-; Таблица указателей на заглушки (для заполнения IDT)
+; Таблица указателей на заглушки (первые 48 векторов)
 ; ------------------------------
 section .data
 global isr_stub_table
