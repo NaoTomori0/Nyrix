@@ -4,8 +4,6 @@
 
 #include <stdint.h>
 
-void task_disable_test();
-
 struct TaskContext {
     uint32_t eip;
     uint32_t eflags;
@@ -22,5 +20,6 @@ struct Task {
 void tasking_init();
 void task_switch();
 void task_enable_test();
+void task_disable_test();
 
 #endif

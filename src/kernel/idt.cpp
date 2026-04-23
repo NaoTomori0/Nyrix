@@ -4,15 +4,32 @@
 
 extern void task_switch();
 extern void terminal_putchar(char c);
+extern void terminal_write(const char *str);
+extern void task_enable_test();
 
 extern "C" void idt_flush(uint32_t);
 extern "C" uint32_t isr_stub_table[];
 extern "C" void isr_syscall();
 
-// Обработчик системного вызова
+// Номер системного вызова находится в EAX
+// Аргументы: EBX, ECX, EDX
 extern "C" void syscall_handler()
 {
-    terminal_putchar('S'); // печатаем 'S' с текущим цветом терминала
+    uint32_t syscall_no;
+    __asm__ volatile("mov %%eax, %0" : "=r"(syscall_no));
+
+    if (syscall_no == 1)
+    {
+        uint32_t str_ptr, len;
+        __asm__ volatile("mov %%ebx, %0" : "=r"(str_ptr));
+        __asm__ volatile("mov %%ecx, %0" : "=r"(len));
+        char *s = (char *)str_ptr;
+        for (uint32_t i = 0; i < len; ++i)
+        {
+            terminal_putchar(s[i]);
+        }
+    }
+    // exit не предусмотрен — программа остаётся в Ring 3
 }
 
 extern "C" void fault_handler(Registers *regs)

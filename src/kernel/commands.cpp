@@ -11,7 +11,7 @@ void process_command(const char *cmd)
 {
     if (cmd[0] == 'h' && cmd[1] == 'e' && cmd[2] == 'l' && cmd[3] == 'p' && cmd[4] == '\0')
     {
-        terminal_write("Available commands: help, clear, echo, user\n");
+        terminal_write("Available commands: help, clear, echo\n");
     }
     else if (cmd[0] == 'c' && cmd[1] == 'l' && cmd[2] == 'e' && cmd[3] == 'a' && cmd[4] == 'r' && cmd[5] == '\0')
     {
@@ -21,14 +21,6 @@ void process_command(const char *cmd)
     {
         terminal_write(&cmd[5]);
         terminal_write("\n");
-    }
-    else if (cmd[0] == 'u' && cmd[1] == 's' && cmd[2] == 'e' && cmd[3] == 'r' && cmd[4] == '\0')
-    {
-        terminal_write("Entering Ring 3...\n");
-        switch_to_user_mode();
-        // Когда пользовательская программа вызовет exit, мы вернёмся сюда
-        terminal_write("Returned to kernel.\n");
-        terminal_write("nyrix> ");
     }
     else if (cmd[0] != '\0')
     {
