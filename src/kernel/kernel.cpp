@@ -21,6 +21,7 @@ static inline uint16_t vga_entry(unsigned char ch, uint8_t color)
 {
     return static_cast<uint16_t>(ch) | (static_cast<uint16_t>(color) << 8);
 }
+
 void update_cursor(size_t row, size_t col)
 {
     uint16_t pos = row * VGA_WIDTH + col;
@@ -29,6 +30,12 @@ void update_cursor(size_t row, size_t col)
     outb(0x3D4, 0x0E);
     outb(0x3D5, (uint8_t)((pos >> 8) & 0xFF));
 }
+
+void terminal_setcolor(uint8_t new_color)
+{
+    terminal_color = new_color;
+}
+
 static void vga_scroll()
 {
     for (size_t y = 1; y < VGA_HEIGHT; ++y)
@@ -37,6 +44,7 @@ static void vga_scroll()
     for (size_t x = 0; x < VGA_WIDTH; ++x)
         VGA_BUFFER[(VGA_HEIGHT - 1) * VGA_WIDTH + x] = vga_entry(' ', terminal_color);
 }
+
 void terminal_clear()
 {
     for (size_t y = 0; y < VGA_HEIGHT; ++y)
@@ -45,6 +53,7 @@ void terminal_clear()
     terminal_row = terminal_column = 0;
     update_cursor(terminal_row, terminal_column);
 }
+
 void terminal_putchar(char c)
 {
     if (c == '\n')
@@ -83,6 +92,7 @@ void terminal_putchar(char c)
     }
     update_cursor(terminal_row, terminal_column);
 }
+
 void terminal_write(const char *str)
 {
     while (*str)
