@@ -23,7 +23,8 @@ OBJS = $(BUILD_DIR)/boot.o \
        $(BUILD_DIR)/keyboard.o \
        $(BUILD_DIR)/pmm.o \
        $(BUILD_DIR)/kmalloc.o \
-       $(BUILD_DIR)/commands.o
+       $(BUILD_DIR)/commands.o \
+	   $(BUILD_DIR)/paging.o
 
 
 all: $(ISO_IMAGE)
@@ -59,6 +60,9 @@ $(BUILD_DIR)/kmalloc.o: $(SRC_DIR)/kernel/kmalloc.cpp | $(BUILD_DIR)
 	$(CXX) $(CXXFLAGS) -c $< -o $@
 
 $(BUILD_DIR)/commands.o: $(SRC_DIR)/kernel/commands.cpp | $(BUILD_DIR)
+	$(CXX) $(CXXFLAGS) -c $< -o $@
+
+$(BUILD_DIR)/paging.o: $(SRC_DIR)/kernel/paging.cpp | $(BUILD_DIR)
 	$(CXX) $(CXXFLAGS) -c $< -o $@
 
 $(KERNEL_BIN): $(OBJS)

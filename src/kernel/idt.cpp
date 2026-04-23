@@ -2,6 +2,7 @@
 #include "idt.h"
 
 #include "keyboard.h"
+#include "paging.h"
 
 static IDTEntry idt_entries[256];
 static IDTPtr idt_ptr;
@@ -14,10 +15,18 @@ extern "C" void idt_flush(uint32_t);
 
 // Обработчики исключений и прерываний (пока простые)
 extern "C" void fault_handler(Registers* regs) {
-    // Пока просто выводим информацию и зависаем
-    // Позже можно будет написать kernel panic с выводом регистров
-    volatile int x = regs->int_no;
-    (void)x;
+    if (regs->int_no == 14) {
+        uint32_t fault_addr;
+        __asm__ volatile("mov %%cr2, %0" : "=r"(fault_addr));
+        // Можно записать в VGA напрямую, но чтобы не засорять, просто запретим
+        // прерывания и зависнем В будущем здесь будет логирование
+        (void)fault_addr;
+        // Для отладки можно моргнуть курсором, но пока просто бесконечный цикл
+        while (1) {
+            __asm__("hlt");
+        }
+    }
+    // Остальные исключения
     while (1) {
         __asm__("hlt");
     }
