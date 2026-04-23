@@ -142,21 +142,17 @@ extern "C" void kernel_main(unsigned int magic, multiboot_info *mb_info)
         terminal_write("No memory map.\n");
     }
 
-    // terminal_write("Enabling paging (4MB)...\n");
-    // paging_init_simple(); // вместо paging_init_full
-    // terminal_write("Paging enabled.\n");
-
-    terminal_write("Enabling paging...\n");
-    paging_init_simple();
+    terminal_write("Enabling paging (4MB)...\n");
+    paging_init_simple(); // вместо paging_init_full
     terminal_write("Paging enabled.\n");
 
     // terminal_write("Enabling full paging...\n");
     // paging_init_full();
     // terminal_write("Paging enabled for all memory.\n");
 
-    // terminal_write("Initializing kernel heap...\n");
-    // kmalloc_init();
-    // terminal_write("Kernel heap ready.\n");
+    terminal_write("Initializing kernel heap...\n");
+    kmalloc_init();
+    terminal_write("Kernel heap ready.\n");
 
     pit_init(100); // 100 Гц
     tasking_init();
