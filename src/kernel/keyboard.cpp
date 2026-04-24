@@ -332,6 +332,7 @@ void Keyboard::handle_interrupt()
         }
         input_buffer[input_pos] = ascii;
         input_pos++;
-        redraw_input();
+        terminal_putchar(ascii); // <-- вот этот вызов должен отобразить символ
+        redraw_input();          // в графике ничего не делает
     }
 }

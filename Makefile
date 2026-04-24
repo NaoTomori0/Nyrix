@@ -28,8 +28,7 @@ OBJS = $(BUILD_DIR)/boot.o \
        $(BUILD_DIR)/paging.o \
        $(BUILD_DIR)/pit.o \
        $(BUILD_DIR)/task.o \
-       $(BUILD_DIR)/tss.o \
-       $(BUILD_DIR)/user.o
+       $(BUILD_DIR)/gfx.o
 
 all: $(ISO_IMAGE)
 
@@ -78,10 +77,7 @@ $(BUILD_DIR)/pit.o: $(SRC_DIR)/kernel/pit.cpp | $(BUILD_DIR)
 $(BUILD_DIR)/task.o: $(SRC_DIR)/kernel/task.cpp | $(BUILD_DIR)
 	$(CXX) $(CXXFLAGS) -c $< -o $@
 
-$(BUILD_DIR)/tss.o: $(SRC_DIR)/kernel/tss.cpp | $(BUILD_DIR)
-	$(CXX) $(CXXFLAGS) -c $< -o $@
-
-$(BUILD_DIR)/user.o: $(SRC_DIR)/kernel/user.cpp | $(BUILD_DIR)
+$(BUILD_DIR)/gfx.o: $(SRC_DIR)/kernel/gfx.cpp | $(BUILD_DIR)
 	$(CXX) $(CXXFLAGS) -c $< -o $@
 
 $(KERNEL_BIN): $(OBJS)
@@ -98,10 +94,19 @@ $(ISO_IMAGE): $(KERNEL_BIN)
 	echo '}' >> $(ISO_DIR)/boot/grub/grub.cfg
 	grub-mkrescue -o $@ $(ISO_DIR) 2>/dev/null
 
+# run: $(ISO_IMAGE)
+# 	qemu-system-i386 -cdrom $(ISO_IMAGE) -vga std
+
 run: $(ISO_IMAGE)
 	qemu-system-i386 -cdrom $(ISO_IMAGE) -vga std
 
+run-vga: $(ISO_IMAGE)
+	qemu-system-i386 -cdrom $(ISO_IMAGE)
+
+run-debug: $(ISO_IMAGE)
+	qemu-system-i386 -cdrom $(ISO_IMAGE) -nographic -no-reboot
+	
 clean:
 	rm -rf $(BUILD_DIR) $(ISO_DIR)
 
-.PHONY: all clean run
+.PHONY: all clean run run-vga

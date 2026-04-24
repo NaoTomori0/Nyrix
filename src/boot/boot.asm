@@ -14,6 +14,15 @@ multiboot2_header:
     dd HEADER_LENGTH
     dd CHECKSUM
 
+    ; Тег фреймбуфера (type=5)
+    align 8
+    dw 5                     ; тип
+    dw 0                     ; флаги
+    dd 20                    ; размер тега
+    dd 0                     ; ширина (авто)
+    dd 0                     ; высота
+    dd 0                     ; глубина (авто)
+
     ; Тег карты памяти (type=6)
     align 8
     dw 6
@@ -36,7 +45,7 @@ extern kernel_main
 start:
     mov esp, stack_top
     push ebx                 ; Multiboot2 info pointer
-    push eax                 ; magic (0x36D76289)
+    push eax                 ; magic
     call kernel_main
     cli
     hlt
