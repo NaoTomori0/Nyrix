@@ -9,6 +9,6 @@ class Keyboard
 public:
     static void init();
     static void handle_interrupt();
+    static void handle_scancode(uint8_t scancode); // <-- ДОБАВЬТЕ
 };
-
 #endif

@@ -3,7 +3,7 @@
 #include <stdint.h>
 #include "gdt.h"
 #include "idt.h"
-#include "keyboard.h"
+// #include "keyboard.h"
 #include "kmalloc.h"
 #include "multiboot2.h"
 #include "paging.h"
@@ -11,8 +11,24 @@
 #include "pmm.h"
 #include "gfx.h"
 #include "task.h"
+#include "tss.h"
 
-// ----- VGA-терминал (резервный, используется только если нет фреймбуфера) -----
+bool use_serial = true;
+bool use_framebuffer = false; // чтобы не мешал
+void serial_putchar(char c)
+{
+    if (c == '\n')
+    {
+        while ((inb(0x3FD) & 0x20) == 0)
+            ;
+        outb(0x3F8, '\r');
+    }
+    while ((inb(0x3FD) & 0x20) == 0)
+        ;
+    outb(0x3F8, c);
+}
+
+// ----- VGA-терминал (резервный) -----
 static uint16_t *const VGA_BUFFER = reinterpret_cast<uint16_t *>(0xB8000);
 static const size_t VGA_WIDTH = 80, VGA_HEIGHT = 25;
 size_t terminal_row = 0, terminal_column = 0;
@@ -20,8 +36,18 @@ uint8_t terminal_color = 0x0F;
 extern char input_buffer[256];
 extern size_t input_pos;
 
-static bool use_framebuffer = false;
-// Глобальные параметры фреймбуфера (заполняются до paging)
+bool use_polling = true;
+uint32_t return_eip = 0;
+uint32_t return_esp = 0; // для сохранения и восстановления стека при exit
+
+uint32_t syscall_eax = 0;
+uint32_t syscall_ebx = 0;
+uint32_t syscall_ecx = 0;
+// глобальная переменная для стека ядра перед выходом в Ring 3
+uint32_t kernel_esp = 0;
+
+// static bool use_framebuffer = false;
+// Глобальные параметры фреймбуфера
 uint64_t g_fb_addr = 0;
 uint32_t g_fb_pitch = 0, g_fb_width = 0, g_fb_height = 0;
 uint8_t g_fb_bpp = 0;
@@ -63,6 +89,10 @@ void terminal_clear()
 }
 void terminal_putchar(char c)
 {
+    if (use_serial)
+    {
+        serial_putchar(c);
+    }
     if (use_framebuffer)
     {
         gfx_putchar(c);
@@ -114,22 +144,49 @@ void terminal_setcolor(uint8_t color)
     terminal_color = color;
     if (use_framebuffer)
     {
-        gfx_set_color(0xFFFFFF, 0x000000);
+        uint32_t fg = 0xFFFFFF, bg = 0x000000;
+        switch (color)
+        {
+        case 0x0A:
+            fg = 0x00FF00;
+            break; // зелёный
+        case 0x0C:
+            fg = 0xFF0000;
+            break; // красный
+        default:
+            fg = 0xFFFFFF;
+            bg = 0x000000;
+            break;
+        }
+        gfx_set_color(fg, bg);
     }
 }
 void redraw_input()
 {
-    if (use_framebuffer)
-        return; // в графике редактор строки пока не поддерживается
     size_t prompt_len = 7;
-    for (size_t i = 0; i < VGA_WIDTH; ++i)
-        VGA_BUFFER[terminal_row * VGA_WIDTH + i] = vga_entry(' ', terminal_color);
-    for (size_t i = 0; i < prompt_len; ++i)
-        VGA_BUFFER[terminal_row * VGA_WIDTH + i] = vga_entry(("nyrix> ")[i], terminal_color);
-    for (size_t i = 0; i < input_pos; ++i)
-        VGA_BUFFER[terminal_row * VGA_WIDTH + prompt_len + i] = vga_entry(input_buffer[i], terminal_color);
-    terminal_column = prompt_len + input_pos;
-    update_cursor(terminal_row, terminal_column);
+    if (use_framebuffer)
+    {
+        uint32_t row = gfx_get_cursor_y();
+        gfx_move_cursor(0, row);
+        for (uint32_t i = 0; i < g_fb_width / 8; ++i)
+            gfx_putchar(' ');
+        gfx_move_cursor(0, row);
+        terminal_write("nyrix> ");
+        for (size_t i = 0; i < input_pos; ++i)
+            terminal_putchar(input_buffer[i]);
+        gfx_move_cursor(prompt_len * 8 + input_pos * 8, row);
+    }
+    else
+    {
+        for (size_t i = 0; i < VGA_WIDTH; ++i)
+            VGA_BUFFER[terminal_row * VGA_WIDTH + i] = vga_entry(' ', terminal_color);
+        for (size_t i = 0; i < prompt_len; ++i)
+            VGA_BUFFER[terminal_row * VGA_WIDTH + i] = vga_entry(("nyrix> ")[i], terminal_color);
+        for (size_t i = 0; i < input_pos; ++i)
+            VGA_BUFFER[terminal_row * VGA_WIDTH + prompt_len + i] = vga_entry(input_buffer[i], terminal_color);
+        terminal_column = prompt_len + input_pos;
+        update_cursor(terminal_row, terminal_column);
+    }
 }
 
 extern void process_command(const char *cmd);
@@ -140,10 +197,6 @@ extern "C" void kernel_main(uint32_t magic, void *mb2_info)
     (void)magic;
 
     // 1. Сбор информации (молча)
-    uint64_t fb_addr = 0;
-    uint32_t fb_pitch = 0, fb_width = 0, fb_height = 0;
-    uint8_t fb_bpp = 0;
-    bool fb_found = false;
     uint32_t mmap_addr = 0, mmap_length = 0;
 
     if (mb2_info)
@@ -173,44 +226,36 @@ extern "C" void kernel_main(uint32_t magic, void *mb2_info)
         }
     }
 
-    // 2. Базовая инициализация без вывода
-    GDT::init();
+    // 2. Базовая инициализация
+    static uint8_t kstack[4096] __attribute__((aligned(16)));
+    tss_init((uint32_t)(kstack + sizeof(kstack)));
+    GDT::init(); // внутри загружает TSS (ltr 0x28)
     IDT::init();
-    Keyboard::init();
+    // Keyboard::init();
     __asm__ volatile("sti");
 
-    // 3. Память и пейджинг (отладка внутри paging_init_full не видна, но и не мешает)
+    // 3. Память и пейджинг
     if (mmap_addr)
     {
         pmm_init(mmap_addr, mmap_length);
     }
     paging_init_full();
 
-    // Отображаем фреймбуфер (теперь page_directory доступен)
+    // Отображаем фреймбуфер (функция в paging.cpp)
     if (g_fb_found)
     {
         uint64_t fb_size = (uint64_t)g_fb_pitch * g_fb_height;
         paging_map_framebuffer(g_fb_addr, fb_size);
     }
 
-    // Инициализация графики
+    // 4. Инициализация графики (один раз)
     if (g_fb_found)
     {
         gfx_init(g_fb_addr, g_fb_pitch, g_fb_width, g_fb_height, g_fb_bpp);
         use_framebuffer = true;
     }
 
-    __asm__ volatile("outb %0, %1" : : "a"('Y'), "Nd"(0x3F8));
-
-    if (fb_found)
-    {
-        gfx_init(fb_addr, fb_pitch, fb_width, fb_height, fb_bpp);
-        // use_framebuffer = true;  // пока не включаем
-    }
-
-    __asm__ volatile("outb %0, %1" : : "a"('Z'), "Nd"(0x3F8));
-
-    // 5. Теперь можно выводить сообщения
+    // 5. Вывод сообщений
     terminal_clear();
     terminal_write("Nyrix Kernel v0.2\n");
     if (mmap_addr)
@@ -222,7 +267,7 @@ extern "C" void kernel_main(uint32_t magic, void *mb2_info)
         terminal_write("No memory map.\n");
     }
     terminal_write("Paging enabled.\n");
-    if (fb_found)
+    if (g_fb_found)
     {
         terminal_write("Framebuffer active.\n");
     }
@@ -241,8 +286,48 @@ extern "C" void kernel_main(uint32_t magic, void *mb2_info)
     terminal_write("Nyrix ready.\n");
     terminal_write("nyrix> ");
 
+    // Главный цикл с опросом последовательного порта (COM1)
+    // Предыдущий код с Keyboard::handle_scancode и опросом 0x64 уберите.
     while (1)
     {
-        __asm__ volatile("hlt");
+        // Проверяем, есть ли данные на COM1 (порт 0x3FD, бит 0 = Data Ready)
+        if (inb(0x3FD) & 0x01)
+        {
+            char c = inb(0x3F8);
+            if (c == '\r')
+            {
+                // Enter: завершаем строку и обрабатываем команду
+                terminal_putchar('\n');
+                input_buffer[input_pos] = '\0';
+                if (input_pos > 0)
+                {
+                    process_command(input_buffer);
+                    // Добавление в историю (можно вставить ваш код)
+                }
+                input_pos = 0;
+                terminal_write("nyrix> ");
+            }
+            else if (c == 127 || c == 8)
+            {
+                // Backspace
+                if (input_pos > 0)
+                {
+                    input_pos--;
+                    terminal_putchar('\b');
+                }
+            }
+            else if (c >= 32 && c < 127)
+            {
+                // Обычный символ
+                if (input_pos < 255)
+                {
+                    input_buffer[input_pos++] = c;
+                    terminal_putchar(c);
+                }
+            }
+        }
+        // Небольшая задержка, чтобы не нагружать процессор
+        for (volatile int i = 0; i < 500; ++i)
+            ;
     }
 }

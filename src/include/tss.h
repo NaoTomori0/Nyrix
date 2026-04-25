@@ -19,6 +19,7 @@ struct TSSEntry
     uint16_t iomap_base;
 } __attribute__((packed));
 
+extern TSSEntry tss_entry; // глобальная переменная
 void tss_init(uint32_t kernel_stack_top);
 void tss_flush(uint16_t selector);
 

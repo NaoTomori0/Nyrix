@@ -3,22 +3,25 @@ bits 32
 
 global idt_flush
 global isr_stub_table
+global isr_syscall
 
 extern fault_handler
 extern irq_handler
+extern syscall_handler
 
 
-; ------------------------------
+extern syscall_eax
+extern syscall_ebx
+extern syscall_ecx
+
+
 ; Загрузка IDT
-; ------------------------------
 idt_flush:
     mov eax, [esp+4]
     lidt [eax]
     ret
 
-; ------------------------------
 ; Макросы для создания ISR/IRQ заглушек
-; ------------------------------
 %macro ISR_NOERRCODE 1
 global isr%1
 isr%1:
@@ -42,9 +45,7 @@ isr%2:
     jmp irq_common
 %endmacro
 
-; ------------------------------
 ; Исключения CPU (0-31)
-; ------------------------------
 ISR_NOERRCODE 0
 ISR_NOERRCODE 1
 ISR_NOERRCODE 2
@@ -78,9 +79,7 @@ ISR_NOERRCODE 29
 ISR_ERRCODE   30
 ISR_NOERRCODE 31
 
-; ------------------------------
 ; Аппаратные прерывания IRQ 0-15 (вектора 32-47)
-; ------------------------------
 IRQ 0, 32
 IRQ 1, 33
 IRQ 2, 34
@@ -98,11 +97,7 @@ IRQ 13, 45
 IRQ 14, 46
 IRQ 15, 47
 
-
-
-; ------------------------------
 ; Общий обработчик исключений
-; ------------------------------
 isr_common:
     pusha
     push ds
@@ -125,9 +120,7 @@ isr_common:
     add esp, 8
     iret
 
-; ------------------------------
 ; Общий обработчик IRQ
-; ------------------------------
 irq_common:
     pusha
     push ds
@@ -150,9 +143,34 @@ irq_common:
     add esp, 8
     iret
 
-; ------------------------------
+; Обработчик системного вызова (int 0x80)
+; src/boot/interrupts.asm (фрагмент isr_syscall)
+isr_syscall:
+    ; Сохраняем параметры системного вызова (до каких-либо изменений стека!)
+    mov [syscall_eax], eax
+    mov [syscall_ebx], ebx
+    mov [syscall_ecx], ecx
+
+    pusha
+    push ds
+    push es
+    push fs
+    push gs
+    mov ax, 0x10
+    mov ds, ax
+    mov es, ax
+    mov fs, ax
+    mov gs, ax
+
+    call syscall_handler
+
+    pop gs
+    pop fs
+    pop es
+    pop ds
+    popa
+    iret
 ; Таблица указателей на заглушки (первые 48 векторов)
-; ------------------------------
 section .data
 global isr_stub_table
 isr_stub_table:

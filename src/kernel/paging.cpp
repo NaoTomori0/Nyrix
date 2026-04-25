@@ -44,14 +44,13 @@ void paging_init_full()
     for (int i = 0; i < 1024; ++i)
         page_directory[i] = 0;
 
-    // 2. Первая таблица – первые 4 МБ
+    // 2. Первая таблица – первые 4 МБ (с флагом USER)
     uint32_t *first_pt = (uint32_t *)0x201000;
     for (int i = 0; i < 1024; ++i)
         first_pt[i] = (i * 4096) | PAGE_PRESENT | PAGE_WRITABLE | PAGE_USER;
     page_directory[0] = (uint32_t)first_pt | PAGE_PRESENT | PAGE_WRITABLE | PAGE_USER;
 
     // 3. Обработка карты памяти (начиная с >4 МБ)
-    // next_pt уже инициализирован как 0x202000
     multiboot2_mmap_entry *entry = (multiboot2_mmap_entry *)g_mmap_addr;
     while ((uint32_t)entry < g_mmap_addr + g_mmap_length)
     {
@@ -90,7 +89,22 @@ void paging_init_full()
         entry = (multiboot2_mmap_entry *)((uint32_t)entry + sizeof(multiboot2_mmap_entry));
     }
 
-    // 4. Включение пейджинга (после того, как всё отображено)
+    // 4. Добавляем флаг USER на ВСЕ страницы в нижних 4 МБ (0x100000..0x400000)
+    for (uint32_t addr = 0x100000; addr < 0x400000; addr += 0x1000)
+    {
+        uint32_t pd_idx = (addr >> 22) & 0x3FF;
+        uint32_t pt_idx = (addr >> 12) & 0x3FF;
+        if (page_directory[pd_idx] & PAGE_PRESENT)
+        {
+            uint32_t *pt = (uint32_t *)(page_directory[pd_idx] & ~0xFFF);
+            if (pt[pt_idx] & PAGE_PRESENT)
+            {
+                pt[pt_idx] |= PAGE_USER;
+            }
+        }
+    }
+
+    // 5. Включение пейджинга
     __asm__ volatile("mov %0, %%cr3" : : "r"(page_directory));
     uint32_t cr0;
     __asm__ volatile("mov %%cr0, %0" : "=r"(cr0));

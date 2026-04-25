@@ -28,7 +28,10 @@ OBJS = $(BUILD_DIR)/boot.o \
        $(BUILD_DIR)/paging.o \
        $(BUILD_DIR)/pit.o \
        $(BUILD_DIR)/task.o \
-       $(BUILD_DIR)/gfx.o
+       $(BUILD_DIR)/gfx.o \
+       $(BUILD_DIR)/user.o \
+	   $(BUILD_DIR)/tss.o 
+
 
 all: $(ISO_IMAGE)
 
@@ -80,6 +83,12 @@ $(BUILD_DIR)/task.o: $(SRC_DIR)/kernel/task.cpp | $(BUILD_DIR)
 $(BUILD_DIR)/gfx.o: $(SRC_DIR)/kernel/gfx.cpp | $(BUILD_DIR)
 	$(CXX) $(CXXFLAGS) -c $< -o $@
 
+$(BUILD_DIR)/user.o: $(SRC_DIR)/kernel/user.cpp | $(BUILD_DIR)
+	$(CXX) $(CXXFLAGS) -c $< -o $@
+
+$(BUILD_DIR)/tss.o: $(SRC_DIR)/kernel/tss.cpp | $(BUILD_DIR)
+	$(CXX) $(CXXFLAGS) -c $< -o $@
+
 $(KERNEL_BIN): $(OBJS)
 	$(LD) $(LDFLAGS) -o $@ $^
 
@@ -100,13 +109,25 @@ $(ISO_IMAGE): $(KERNEL_BIN)
 run: $(ISO_IMAGE)
 	qemu-system-i386 -cdrom $(ISO_IMAGE) -vga std
 
+run-debug-con: $(ISO_IMAGE)
+	qemu-system-i386 -cdrom $(ISO_IMAGE) -debugcon stdio -no-reboot
+
 run-vga: $(ISO_IMAGE)
 	qemu-system-i386 -cdrom $(ISO_IMAGE)
 
+run-serial: $(ISO_IMAGE)
+	qemu-system-i386 -cdrom $(ISO_IMAGE) -nographic
+
 run-debug: $(ISO_IMAGE)
-	qemu-system-i386 -cdrom $(ISO_IMAGE) -nographic -no-reboot
-	
+	qemu-system-i386 -cdrom $(ISO_IMAGE) -no-reboot
+
+run-debug-con: $(ISO_IMAGE)
+	qemu-system-i386 -cdrom $(ISO_IMAGE) -debugcon stdio -no-reboot
+
 clean:
 	rm -rf $(BUILD_DIR) $(ISO_DIR)
+
+run-vnc: $(ISO_IMAGE)
+	qemu-system-i386 -cdrom $(ISO_IMAGE) -vga std -vnc :1
 
 .PHONY: all clean run run-vga

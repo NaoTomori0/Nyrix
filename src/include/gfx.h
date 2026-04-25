@@ -8,4 +8,10 @@ void gfx_putchar(char c);
 void gfx_clear();
 void gfx_set_color(uint32_t fg, uint32_t bg);
 void gfx_scroll();
+
+// Управление курсором
+void gfx_move_cursor(uint32_t x, uint32_t y);
+uint32_t gfx_get_cursor_x();
+uint32_t gfx_get_cursor_y();
+
 #endif

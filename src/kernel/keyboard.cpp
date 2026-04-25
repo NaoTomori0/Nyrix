@@ -9,6 +9,8 @@ extern void terminal_write(const char *str);
 extern void process_command(const char *cmd);
 extern void redraw_input(); // из kernel.cpp
 
+extern uint32_t fb_width;
+
 // Глобальные буфер и позиция (используются в kernel.cpp для redraw)
 char input_buffer[256];
 size_t input_pos = 0;
@@ -35,6 +37,112 @@ static bool caps_lock = false;
 static bool extended = false;
 
 void Keyboard::init() {}
+
+void Keyboard::handle_scancode(uint8_t scancode)
+{
+    // Полная копия вашей handle_interrupt, но БЕЗ uint8_t scancode = inb(0x60);
+    // Начинаем сразу с проверки 0xE0 и т.д.
+    if (scancode == 0xE0)
+    {
+        extended = true;
+        return;
+    }
+
+    if (scancode & 0x80)
+    {
+        // отпускание
+        scancode &= 0x7F;
+        if (scancode == 0x2A || scancode == 0x36)
+            shift_pressed = false;
+        extended = false;
+        return;
+    }
+
+    if (extended)
+    {
+        // ... (ваш код для стрелок, Home, End, Delete) ...
+        // Обязательно скопируйте весь блок с case 0x48, 0x50, 0x4B, 0x4D, 0x47, 0x4F, 0x53
+        // и return в конце каждого case.
+        // Для краткости я не дублирую его здесь, но он ДОЛЖЕН БЫТЬ идентичен.
+        extended = false;
+        return;
+    }
+
+    if (scancode == 0x2A || scancode == 0x36)
+    {
+        shift_pressed = true;
+        return;
+    }
+    if (scancode == 0x3A)
+    {
+        caps_lock = !caps_lock;
+        return;
+    }
+
+    char ascii = scancode_to_ascii[scancode];
+    if (ascii == 0)
+        return;
+
+    // Shift / Caps (ваш код)
+    if (ascii >= 'a' && ascii <= 'z')
+    {
+        if (shift_pressed ^ caps_lock)
+            ascii -= 32;
+    }
+    else if (shift_pressed)
+    {
+        // switch (ascii) ...
+    }
+
+    if (ascii == '\n')
+    {
+        // Enter
+        input_buffer[input_pos] = '\0';
+        terminal_putchar('\n');
+        if (input_pos > 0)
+        {
+            process_command(input_buffer);
+            // добавление в историю
+        }
+        input_pos = 0;
+        history_index = -1;
+        terminal_write("nyrix> ");
+        return;
+    }
+
+    if (ascii == '\b')
+    {
+        // Backspace
+        if (input_pos > 0)
+        {
+            for (size_t i = input_pos - 1; i < sizeof(input_buffer) - 1; ++i)
+            {
+                input_buffer[i] = input_buffer[i + 1];
+                if (input_buffer[i] == '\0')
+                    break;
+            }
+            input_pos--;
+            redraw_input();
+        }
+        return;
+    }
+
+    // Обычный символ
+    if (input_pos < sizeof(input_buffer) - 1)
+    {
+        if (input_buffer[input_pos] != '\0')
+        {
+            size_t len = input_pos;
+            while (input_buffer[len])
+                len++;
+            for (size_t i = len + 1; i > input_pos; --i)
+                input_buffer[i] = input_buffer[i - 1];
+        }
+        input_buffer[input_pos] = ascii;
+        input_pos++;
+        redraw_input();
+    }
+}
 
 void Keyboard::handle_interrupt()
 {
@@ -308,6 +416,7 @@ void Keyboard::handle_interrupt()
     {
         if (input_pos > 0)
         {
+            // Сдвигаем оставшуюся строку
             for (size_t i = input_pos - 1; i < sizeof(input_buffer) - 1; ++i)
             {
                 input_buffer[i] = input_buffer[i + 1];
@@ -315,7 +424,7 @@ void Keyboard::handle_interrupt()
                     break;
             }
             input_pos--;
-            redraw_input();
+            terminal_putchar('\b');
         }
         return;
     }

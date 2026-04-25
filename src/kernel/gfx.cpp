@@ -2,21 +2,18 @@
 #include "gfx.h"
 #include <stdint.h>
 
-static uint8_t *framebuffer;
-static uint32_t fb_pitch, fb_width, fb_height;
-static uint8_t fb_bpp;
-
-static uint32_t fg_color = 0xFFFFFF; // белый
-static uint32_t bg_color = 0x000000; // чёрный
-
-static uint32_t cursor_x = 0;
-static uint32_t cursor_y = 0;
-const uint32_t CHAR_W = 8;
-const uint32_t CHAR_H = 16;
+extern bool use_serial;
+extern void serial_putchar(char c);
+uint8_t *framebuffer;
+uint32_t fb_pitch, fb_width, fb_height; // убрали static
+uint8_t fb_bpp;
+static uint32_t fg_color = 0xFFFFFF, bg_color = 0x000000;
+static uint32_t cursor_x = 0, cursor_y = 0;
+const uint32_t CHAR_W = 8, CHAR_H = 16;
 
 // Полный шрифт 8x16 (ASCII 32-126)
 static const uint8_t font[95][16] = {
-    // пробел (32)
+    // пробел
     {0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00},
     // ! (33)
     {0x00, 0x00, 0x18, 0x3C, 0x3C, 0x3C, 0x18, 0x18, 0x18, 0x00, 0x18, 0x18, 0x00, 0x00, 0x00, 0x00},
@@ -210,7 +207,7 @@ static const uint8_t font[95][16] = {
 static const uint8_t *get_font_char(char ch)
 {
     if (ch < 32 || ch > 126)
-        return font[0]; // пробел для непечатаемых
+        return font[0];
     return font[ch - 32];
 }
 
@@ -221,59 +218,85 @@ void gfx_init(uint64_t fb_addr, uint32_t pitch, uint32_t width, uint32_t height,
     fb_width = width;
     fb_height = height;
     fb_bpp = bpp;
-
-    // Заливаем ВЕСЬ экран КРАСНЫМ цветом
     for (uint32_t y = 0; y < height; ++y)
     {
         uint32_t *row = reinterpret_cast<uint32_t *>(framebuffer + y * pitch);
         for (uint32_t x = 0; x < width; ++x)
-        {
-            row[x] = 0x00FF0000; // красный
-        }
+            row[x] = bg_color;
     }
-    // Белый прямоугольник в центре для проверки
-    for (uint32_t y = height / 3; y < 2 * height / 3; ++y)
-    {
-        uint32_t *row = reinterpret_cast<uint32_t *>(framebuffer + y * pitch);
-        for (uint32_t x = width / 3; x < 2 * width / 3; ++x)
-        {
-            row[x] = 0x00FFFFFF; // белый
-        }
-    }
-
     cursor_x = 0;
     cursor_y = 0;
 }
 
+// Инвертирует клетку (курсор)
+static void gfx_invert_cell(uint32_t cx, uint32_t cy)
+{
+    for (uint32_t y = 0; y < CHAR_H; ++y)
+    {
+        uint32_t *row = (uint32_t *)(framebuffer + (cy + y) * fb_pitch + cx * (fb_bpp / 8));
+        for (uint32_t x = 0; x < CHAR_W; ++x)
+        {
+            row[x] = ~row[x];
+        }
+    }
+}
+
+// Скрыть курсор (инвертировать текущую клетку)
+static void gfx_hide_cursor()
+{
+    gfx_invert_cell(cursor_x, cursor_y);
+}
+
+// Показать курсор (инвертировать текущую клетку)
+static void gfx_show_cursor()
+{
+    gfx_invert_cell(cursor_x, cursor_y);
+}
+
 void gfx_putchar(char c)
 {
+    gfx_hide_cursor(); // убираем курсор перед изменениями
+    if (use_serial)
+    {
+        serial_putchar(c);
+    }
+
     if (c == '\n')
     {
         cursor_x = 0;
         cursor_y += CHAR_H;
         if (cursor_y + CHAR_H >= fb_height)
             gfx_scroll();
+        gfx_show_cursor();
         return;
     }
+
     if (c == '\b')
     {
+        // Перемещаемся назад (если есть куда)
         if (cursor_x >= CHAR_W)
+        {
             cursor_x -= CHAR_W;
+        }
         else if (cursor_y >= CHAR_H)
         {
             cursor_y -= CHAR_H;
             cursor_x = fb_width - CHAR_W;
         }
-        // Стираем символ (заливаем фоном)
+        // Заливаем клетку фоном (стираем символ)
         for (uint32_t y = 0; y < CHAR_H; ++y)
         {
             uint32_t *row = (uint32_t *)(framebuffer + (cursor_y + y) * fb_pitch + cursor_x * (fb_bpp / 8));
             for (uint32_t x = 0; x < CHAR_W; ++x)
+            {
                 row[x] = bg_color;
+            }
         }
+        gfx_show_cursor(); // показываем курсор на новом месте
         return;
     }
 
+    // Обычный символ
     const uint8_t *bitmap = get_font_char(c);
     for (uint32_t y = 0; y < CHAR_H; ++y)
     {
@@ -293,6 +316,7 @@ void gfx_putchar(char c)
         if (cursor_y + CHAR_H >= fb_height)
             gfx_scroll();
     }
+    gfx_show_cursor();
 }
 
 void gfx_scroll()
@@ -304,7 +328,6 @@ void gfx_scroll()
         for (uint32_t x = 0; x < fb_width * (fb_bpp / 8); ++x)
             dst[x] = src[x];
     }
-    // Очищаем последнюю строку
     for (uint32_t y = fb_height - CHAR_H; y < fb_height; ++y)
     {
         uint32_t *row = (uint32_t *)(framebuffer + y * fb_pitch);
@@ -323,6 +346,7 @@ void gfx_clear()
     }
     cursor_x = 0;
     cursor_y = 0;
+    gfx_show_cursor();
 }
 
 void gfx_set_color(uint32_t fg, uint32_t bg)
@@ -330,3 +354,16 @@ void gfx_set_color(uint32_t fg, uint32_t bg)
     fg_color = fg;
     bg_color = bg;
 }
+
+void gfx_move_cursor(uint32_t x, uint32_t y)
+{
+    // Скрываем старый курсор (инвертируем текущую клетку)
+    gfx_invert_cell(cursor_x, cursor_y);
+    cursor_x = x;
+    cursor_y = y;
+    // Показываем новый курсор
+    gfx_invert_cell(cursor_x, cursor_y);
+}
+
+uint32_t gfx_get_cursor_x() { return cursor_x; }
+uint32_t gfx_get_cursor_y() { return cursor_y; }
