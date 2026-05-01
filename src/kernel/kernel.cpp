@@ -136,6 +136,8 @@ void terminal_putchar(char c)
 }
 void terminal_write(const char *str)
 {
+    // terminal_putchar(' ');
+    // terminal_putchar(' ');
     while (*str)
         terminal_putchar(*str++);
 }
@@ -149,13 +151,13 @@ void terminal_setcolor(uint8_t color)
         {
         case 0x0A:
             fg = 0x00FF00;
-            break; // зелёный
+            break; // зеленый
         case 0x0C:
             fg = 0xFF0000;
             break; // красный
         default:
-            fg = 0xFFFFFF;
-            bg = 0x000000;
+            fg = 0xFFFFFF; // булый
+            bg = 0x000000; // НИГААААА
             break;
         }
         gfx_set_color(fg, bg);
@@ -196,7 +198,6 @@ extern "C" void kernel_main(uint32_t magic, void *mb2_info)
 {
     (void)magic;
 
-    // 1. Сбор информации (молча)
     uint32_t mmap_addr = 0, mmap_length = 0;
 
     if (mb2_info)
@@ -257,33 +258,33 @@ extern "C" void kernel_main(uint32_t magic, void *mb2_info)
 
     // 5. Вывод сообщений
     terminal_clear();
-    terminal_write("Nyrix Kernel v0.2\n");
+    terminal_write("Nyrix Kernel v0.1\n");
     if (mmap_addr)
     {
-        terminal_write("PMM initialized.\n");
+        // terminal_write("PMM initialized.\n");
     }
     else
     {
-        terminal_write("No memory map.\n");
+        // terminal_write("No memory map.\n");
     }
-    terminal_write("Paging enabled.\n");
+    // terminal_write("Paging enabled.\n");
     if (g_fb_found)
     {
-        terminal_write("Framebuffer active.\n");
+        // terminal_write("Framebuffer active.\n");
     }
     else
     {
-        terminal_write("Using VGA fallback.\n");
+        // terminal_write("Using VGA fallback.\n");
     }
 
-    terminal_write("Initializing kernel heap...\n");
+    // terminal_write("Initializing kernel heap...\n");
     kmalloc_init();
 
     pit_init(100);
     tasking_init();
-    terminal_write("Multitasking started.\n");
+    // terminal_write("Multitasking started.\n");
 
-    terminal_write("Nyrix ready.\n");
+    // terminal_write("Nyrix ready.\n");
     terminal_write("nyrix> ");
 
     // Главный цикл с опросом последовательного порта (COM1)
