@@ -4,13 +4,12 @@
 
 #include <stdint.h>
 
-// Структура дескриптора прерывания (шлюз)
 struct IDTEntry
 {
     uint16_t base_low;
-    uint16_t selector; // сегмент кода (0x08)
-    uint8_t zero;      // всегда 0
-    uint8_t flags;     // тип шлюза, DPL, Present
+    uint16_t selector;
+    uint8_t zero;
+    uint8_t flags;
     uint16_t base_high;
 } __attribute__((packed));
 
@@ -20,7 +19,6 @@ struct IDTPtr
     uint32_t base;
 } __attribute__((packed));
 
-// Состояние процессора, сохраняемое при прерывании
 struct Registers
 {
     uint32_t gs, fs, es, ds;
@@ -47,5 +45,8 @@ static inline uint8_t inb(uint16_t port)
     __asm__ volatile("inb %1, %0" : "=a"(ret) : "Nd"(port));
     return ret;
 }
+
+// Глобальная таблица IDT (нужна для paging_init_full)
+extern IDTEntry idt_entries[];
 
 #endif

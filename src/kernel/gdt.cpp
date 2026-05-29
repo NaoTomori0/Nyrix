@@ -10,9 +10,9 @@ void GDT::init()
 {
     // 1. Нулевой дескриптор
     gdt_entries[0] = {0, 0, 0, 0, 0, 0};
-    // 2. Код ядра (Ring 0)
+    // 2. Код ядра (Ring 0) – селектор 0x08
     gdt_entries[1] = {0xFFFF, 0, 0, 0x9A, 0xCF, 0};
-    // 3. Данные ядра (Ring 0)
+    // 3. Данные ядра (Ring 0) – селектор 0x10
     gdt_entries[2] = {0xFFFF, 0, 0, 0x92, 0xCF, 0};
     // 4. Код пользователя (Ring 3) – селектор 0x1B
     gdt_entries[3] = {0xFFFF, 0, 0, 0xFA, 0xCF, 0};
@@ -24,7 +24,10 @@ void GDT::init()
     gdt_entries[5].limit_low = sizeof(TSSEntry) - 1;
     gdt_entries[5].base_low = tss_base & 0xFFFF;
     gdt_entries[5].base_middle = (tss_base >> 16) & 0xFF;
-    gdt_entries[5].access = 0x89;      // Present, 32-bit TSS (available)
+
+    // ИСПРАВЛЕНО: Изменено с 0x89 на 0xE9 (установлен DPL = 3)
+    gdt_entries[5].access = 0xE9; // Present, DPL=3, 32-bit TSS (available)
+
     gdt_entries[5].granularity = 0x00; // гранулярность = 1 байт
     gdt_entries[5].base_high = (tss_base >> 24) & 0xFF;
 

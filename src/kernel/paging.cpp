@@ -2,10 +2,14 @@
 #include "paging.h"
 #include "pmm.h"
 #include "multiboot2.h"
+#include "idt.h" // <-- добавлено
 #include <stdint.h>
 
 extern uint32_t g_mmap_addr;
 extern uint32_t g_mmap_length;
+
+// Глобальная таблица IDT (объявлена в idt.cpp)
+extern IDTEntry idt_entries[];
 
 const uint32_t PAGE_PRESENT = 1;
 const uint32_t PAGE_WRITABLE = 2;
@@ -89,7 +93,7 @@ void paging_init_full()
         entry = (multiboot2_mmap_entry *)((uint32_t)entry + sizeof(multiboot2_mmap_entry));
     }
 
-    // 4. Добавляем флаг USER на ВСЕ страницы в нижних 4 МБ (0x100000..0x400000)
+    // 4. Добавляем флаг USER на ВСЕ страницы в нижних 4 МБ (где находится код и данные)
     for (uint32_t addr = 0x100000; addr < 0x400000; addr += 0x1000)
     {
         uint32_t pd_idx = (addr >> 22) & 0x3FF;
@@ -104,7 +108,24 @@ void paging_init_full()
         }
     }
 
-    // 5. Включение пейджинга
+    // 5. Явно добавляем флаг USER на страницы IDT
+    uint32_t idt_start = reinterpret_cast<uint32_t>(&idt_entries[0]);
+    uint32_t idt_end = idt_start + sizeof(IDTEntry) * 256; // размер таблицы IDT
+    for (uint32_t addr = idt_start & ~0xFFF; addr < idt_end; addr += 0x1000)
+    {
+        uint32_t pd_idx = (addr >> 22) & 0x3FF;
+        uint32_t pt_idx = (addr >> 12) & 0x3FF;
+        if (page_directory[pd_idx] & PAGE_PRESENT)
+        {
+            uint32_t *pt = (uint32_t *)(page_directory[pd_idx] & ~0xFFF);
+            if (pt[pt_idx] & PAGE_PRESENT)
+            {
+                pt[pt_idx] |= PAGE_USER;
+            }
+        }
+    }
+
+    // 6. Включение пейджинга
     __asm__ volatile("mov %0, %%cr3" : : "r"(page_directory));
     uint32_t cr0;
     __asm__ volatile("mov %%cr0, %0" : "=r"(cr0));

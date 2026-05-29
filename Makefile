@@ -109,9 +109,6 @@ $(ISO_IMAGE): $(KERNEL_BIN)
 run: $(ISO_IMAGE)
 	qemu-system-i386 -cdrom $(ISO_IMAGE) -vga std
 
-run-debug-con: $(ISO_IMAGE)
-	qemu-system-i386 -cdrom $(ISO_IMAGE) -debugcon stdio -no-reboot
-
 run-vga: $(ISO_IMAGE)
 	qemu-system-i386 -cdrom $(ISO_IMAGE)
 

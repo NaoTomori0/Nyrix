@@ -1,9 +1,8 @@
-// src/kernel/kernel.cpp
 #include <stddef.h>
 #include <stdint.h>
 #include "gdt.h"
 #include "idt.h"
-// #include "keyboard.h"
+
 #include "kmalloc.h"
 #include "multiboot2.h"
 #include "paging.h"

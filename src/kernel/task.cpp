@@ -61,6 +61,5 @@ void task_switch()
 void task_disable_test() { test_task.active = false; }
 void task_enable_test() { test_task.active = true; }
 
-// Заглушки, чтобы избежать ошибок линковки
-void start_user_task(Task *task) {}
+void start_user_task(Task *) {}
 void task_exit() {}

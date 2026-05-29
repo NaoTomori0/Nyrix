@@ -145,31 +145,43 @@ irq_common:
 
 ; Обработчик системного вызова (int 0x80)
 ; src/boot/interrupts.asm (фрагмент isr_syscall)
+; Обработчик системного вызова (int 0x80)
 isr_syscall:
-    ; Сохраняем параметры системного вызова (до каких-либо изменений стека!)
-    mov [syscall_eax], eax
-    mov [syscall_ebx], ebx
-    mov [syscall_ecx], ecx
-
-    pusha
-    push ds
-    push es
-    push fs
-    push gs
-    mov ax, 0x10
-    mov ds, ax
-    mov es, ax
-    mov fs, ax
-    mov gs, ax
-
-    call syscall_handler
-
-    pop gs
-    pop fs
-    pop es
-    pop ds
-    popa
+    push eax
+    mov al, 'X'
+    out 0xE9, al      ; отправляем X в отладочный порт
+    pop eax
     iret
+
+    ; ; 1. ПЕРЕКЛЮЧАЕМ СЕГМЕНТ ДАННЫХ НА ЯДРО (0x10) НЕМЕДЛЕННО
+    ; push ax
+    ; mov ax, 0x10
+    ; mov ds, ax
+    ; pop ax
+
+    ; ; 2. Теперь можно безопасно сохранять параметры в глобальные переменные
+    ; mov [syscall_eax], eax
+    ; mov [syscall_ebx], ebx
+    ; mov [syscall_ecx], ecx
+
+    ; ; 3. Стандартный пролог
+    ; pusha
+    ; push es
+    ; push fs
+    ; push gs
+    ; ; DS уже 0x10, но на всякий случай обновим остальные
+    ; mov ax, 0x10
+    ; mov es, ax
+    ; mov fs, ax
+    ; mov gs, ax
+
+    ; call syscall_handler
+
+    ; pop gs
+    ; pop fs
+    ; pop es
+    ; popa
+    ; iret
 ; Таблица указателей на заглушки (первые 48 векторов)
 section .data
 global isr_stub_table
