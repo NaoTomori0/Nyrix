@@ -149,39 +149,66 @@ irq_common:
 isr_syscall:
     push eax
     mov al, 'X'
-    out 0xE9, al      ; отправляем X в отладочный порт
+    out 0xE9, al
     pop eax
+    ; 1. ПЕРЕКЛЮЧАЕМ СЕГМЕНТ ДАННЫХ НА ЯДРО (0x10) НЕМЕДЛЕННО
+    push ax
+    mov ax, 0x10
+    mov ds, ax
+    pop ax
+
+    push eax
+    mov al, 'C'
+    out 0xE9, al
+    pop eax
+
+    ; 2. Теперь можно безопасно сохранять параметры в глобальные переменные
+    mov [syscall_eax], eax
+    mov [syscall_ebx], ebx
+    mov [syscall_ecx], ecx
+
+    push eax
+    mov al, 'V'
+    out 0xE9, al
+    pop eax
+
+    ; 3. Стандартный пролог
+    pusha
+    push es
+    push fs
+    push gs
+
+    push eax
+    mov al, 'B'
+    out 0xE9, al
+    pop eax
+    ; DS уже 0x10, но на всякий случай обновим остальные
+    mov ax, 0x10
+    mov es, ax
+    mov fs, ax
+    mov gs, ax
+
+    push eax
+    mov al, 'N'
+    out 0xE9, al
+    pop eax
+
+    call syscall_handler
+
+    push eax
+    mov al, 'S'
+    out 0xE9, al
+    pop eax
+
+    pop gs
+    pop fs
+    pop es
+    push eax
+    mov al, 'M'
+    out 0xE9, al
+    pop eax
+    popa
     iret
-
-    ; ; 1. ПЕРЕКЛЮЧАЕМ СЕГМЕНТ ДАННЫХ НА ЯДРО (0x10) НЕМЕДЛЕННО
-    ; push ax
-    ; mov ax, 0x10
-    ; mov ds, ax
-    ; pop ax
-
-    ; ; 2. Теперь можно безопасно сохранять параметры в глобальные переменные
-    ; mov [syscall_eax], eax
-    ; mov [syscall_ebx], ebx
-    ; mov [syscall_ecx], ecx
-
-    ; ; 3. Стандартный пролог
-    ; pusha
-    ; push es
-    ; push fs
-    ; push gs
-    ; ; DS уже 0x10, но на всякий случай обновим остальные
-    ; mov ax, 0x10
-    ; mov es, ax
-    ; mov fs, ax
-    ; mov gs, ax
-
-    ; call syscall_handler
-
-    ; pop gs
-    ; pop fs
-    ; pop es
-    ; popa
-    ; iret
 ; Таблица указателей на заглушки (первые 48 векторов)
 section .data
 global isr_stub_table

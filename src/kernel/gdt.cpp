@@ -15,7 +15,8 @@ void GDT::init()
     // 3. Данные ядра (Ring 0) – селектор 0x10
     gdt_entries[2] = {0xFFFF, 0, 0, 0x92, 0xCF, 0};
     // 4. Код пользователя (Ring 3) – селектор 0x1B
-    gdt_entries[3] = {0xFFFF, 0, 0, 0xFA, 0xCF, 0};
+
+    gdt_entries[3] = {0xFFFF, 0, 0, 0xFE, 0xCF, 0}; // 0xFE = DPL=3
     // 5. Данные пользователя (Ring 3) – селектор 0x23
     gdt_entries[4] = {0xFFFF, 0, 0, 0xF2, 0xCF, 0};
 
