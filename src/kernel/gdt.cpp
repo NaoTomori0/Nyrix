@@ -15,8 +15,7 @@ void GDT::init()
     // 3. Данные ядра (Ring 0) – селектор 0x10
     gdt_entries[2] = {0xFFFF, 0, 0, 0x92, 0xCF, 0};
     // 4. Код пользователя (Ring 3) – селектор 0x1B
-
-    gdt_entries[3] = {0xFFFF, 0, 0, 0xFE, 0xCF, 0}; // 0xFE = DPL=3
+    gdt_entries[3] = {0xFFFF, 0, 0, 0xFA, 0xCF, 0}; // ИСПРАВЛЕНО: 0xFA вместо 0xFE
     // 5. Данные пользователя (Ring 3) – селектор 0x23
     gdt_entries[4] = {0xFFFF, 0, 0, 0xF2, 0xCF, 0};
 
@@ -26,8 +25,8 @@ void GDT::init()
     gdt_entries[5].base_low = tss_base & 0xFFFF;
     gdt_entries[5].base_middle = (tss_base >> 16) & 0xFF;
 
-    // ИСПРАВЛЕНО: Изменено с 0x89 на 0xE9 (установлен DPL = 3)
-    gdt_entries[5].access = 0xE9; // Present, DPL=3, 32-bit TSS (available)
+    // ИСПРАВЛЕНО: 0x89 (DPL=0) вместо 0xE9 - TSS должна быть только для Ring 0
+    gdt_entries[5].access = 0x89; // Present, DPL=0, 32-bit TSS (available)
 
     gdt_entries[5].granularity = 0x00; // гранулярность = 1 байт
     gdt_entries[5].base_high = (tss_base >> 24) & 0xFF;
