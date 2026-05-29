@@ -21,16 +21,21 @@ IDTEntry idt_entries[256];
 
 extern "C" void syscall_handler()
 {
+    // ОТЛАДКА
+    serial_putchar('H');
+    
     uint32_t syscall_no = syscall_eax;
 
     if (syscall_no == 1)
     { // write
+        serial_putchar('W');
         const char *str = (const char *)syscall_ebx;
         uint32_t len = syscall_ecx;
         for (uint32_t i = 0; i < len; ++i)
         {
             serial_putchar(str[i]); // выводим каждый символ в COM1
         }
+        serial_putchar('D');
     }
     // другие номера пока не обрабатываем
 }
@@ -95,12 +100,13 @@ void IDT::init()
         idt_entries[i].flags = 0x8E;
     }
 
-    // Системный вызов (int 0x80) – trap gate, DPL=3
+    // Системный вызов (int 0x80) – trap gate, DPL=3, Present=1
+    // Флаг: Present(1) | DPL(3<<5=0x60) | Type(0xF=trap) = 0x8F + 0x60 = 0xEF
     idt_entries[0x80].base_low = (uint32_t)&isr_syscall & 0xFFFF;
     idt_entries[0x80].base_high = ((uint32_t)&isr_syscall >> 16) & 0xFFFF;
-    idt_entries[0x80].selector = 0x08;
+    idt_entries[0x80].selector = 0x08;  // Код ядра
     idt_entries[0x80].zero = 0;
-    idt_entries[0x80].flags = 0xEF;
+    idt_entries[0x80].flags = 0xEF;     // Present=1, DPL=3, Type=15 (trap gate)
 
     idt_ptr.limit = sizeof(idt_entries) - 1;
     idt_ptr.base = reinterpret_cast<uint32_t>(&idt_entries);
