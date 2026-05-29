@@ -23,20 +23,16 @@ extern "C" void syscall_handler()
 {
     uint32_t syscall_no = syscall_eax;
 
-    // отладка: номер вызова
-    __asm__ volatile("outb %0, %1" : : "a"((uint8_t)('0' + syscall_no)), "Nd"(0xE9));
-
     if (syscall_no == 1)
-    {
+    { // write
         const char *str = (const char *)syscall_ebx;
         uint32_t len = syscall_ecx;
         for (uint32_t i = 0; i < len; ++i)
         {
-            __asm__ volatile("outb %0, %1" : : "a"((uint8_t)str[i]), "Nd"(0xE9));
+            serial_putchar(str[i]); // выводим каждый символ в COM1
         }
-        // метка конца цикла
-        __asm__ volatile("outb %0, %1" : : "a"((uint8_t)'Z'), "Nd"(0xE9));
     }
+    // другие номера пока не обрабатываем
 }
 
 extern "C" void fault_handler(Registers *regs)

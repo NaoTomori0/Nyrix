@@ -11,9 +11,11 @@ extern void serial_putchar(char c);
 
 void user_task()
 {
-    __asm__ volatile("outb %0, %1" : : "a"('U'), "Nd"(0xE9));
+    const char msg = '!'; // восклицательный знак для наглядности
+    // Системный вызов write: eax=1, ebx=указатель на символ, ecx=1 (длина)
+    __asm__ volatile("int $0x80" : : "a"(1), "b"(&msg), "c"(1));
     while (1)
-        ;
+        ; // остаёмся в Ring 3
 }
 
 void switch_to_user_mode()
