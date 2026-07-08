@@ -144,14 +144,13 @@ irq_common:
     iret
 
 ; Обработчик системного вызова (int 0x80)
-; ВАЖНО: Нужно корректно сохранить контекст Ring 3 и переключить сегменты
+; Используем простой подход без лишних сохранений регистров
 isr_syscall:
     ; ОТЛАДКА: Входим в обработчик
     mov al, 'A'
     out 0xE9, al
 
     ; КРИТИЧНО: Переключаем DS на ядро ДО использования памяти ядра
-    ; Иначе доступ к [syscall_eax] будет через Ring 3 дескриптор!
     mov ax, 0x10
     mov ds, ax
 
@@ -166,13 +165,21 @@ isr_syscall:
     mov al, 'C'
     out 0xE9, al
 
-    ; Полный пролог: сохраняем все регистры
-    pusha
+    ; Сохраняем только необходимые регистры (не используем pusha)
+    push eax
+    push ecx
+    push edx
+    push ebx
+    push ebp
+    push esi
+    push edi
+    
+    push ds
     push es
     push fs
     push gs
     
-    ; Переключаем остальные сегменты на ядро
+    ; Переключаем сегменты на ядро
     mov ax, 0x10
     mov es, ax
     mov fs, ax
@@ -191,7 +198,15 @@ isr_syscall:
     pop gs
     pop fs
     pop es
-    popa
+    pop ds
+    
+    pop edi
+    pop esi
+    pop ebp
+    pop ebx
+    pop edx
+    pop ecx
+    pop eax
     
     mov al, 'F'
     out 0xE9, al
