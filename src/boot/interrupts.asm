@@ -144,14 +144,10 @@ irq_common:
     iret
 
 ; Обработчик системного вызова (int 0x80)
-; КРИТИЧНО: Сегмент DS остаётся в Ring 3 (0x23)!
-; Нужно НЕМЕДЛЕННО переключить на ядро (0x10) чтобы сохранить параметры
 isr_syscall:
     ; ОТЛАДКА 1: Входим в обработчик
-    push eax
     mov al, 'A'
     out 0xE9, al
-    pop eax
 
     ; КРИТИЧНО: Переключаем DS на ядро ПЕРЕД использованием памяти ядра
     push ax
@@ -159,24 +155,20 @@ isr_syscall:
     mov ds, ax
     pop ax
 
-    ; ОТЛАДКА 2: Теперь записываем параметры
-    push eax
+    ; ОТЛАДКА 2
     mov al, 'B'
     out 0xE9, al
-    pop eax
 
-    ; Сохраняем параметры системного вызова
+    ; Сохраняем параметры системного вызова в памяти ядра
     mov [syscall_eax], eax
     mov [syscall_ebx], ebx
     mov [syscall_ecx], ecx
 
-    ; ОТЛАДКА 3: Параметры сохранены
-    push eax
+    ; ОТЛАДКА 3
     mov al, 'C'
     out 0xE9, al
-    pop eax
 
-    ; Стандартный пролог: сохраняем регистры и переключаем другие сегменты
+    ; Стандартный пролог: сохраняем регистры
     pusha
     push es
     push fs
@@ -188,26 +180,27 @@ isr_syscall:
     mov fs, ax
     mov gs, ax
 
-    ; ОТЛАДКА 4: Вызываем обработчик
-    push eax
+    ; ОТЛАДКА 4
     mov al, 'D'
     out 0xE9, al
-    pop eax
 
     ; Вызываем обработчик на C++
     call syscall_handler
 
-    ; ОТЛАДКА 5: Возвращаемся
-    push eax
+    ; ОТЛАДКА 5
     mov al, 'E'
     out 0xE9, al
-    pop eax
 
     ; Восстанавливаем регистры
     pop gs
     pop fs
     pop es
     popa
+    
+    ; ОТЛАДКА 6: Перед iret
+    mov al, 'F'
+    out 0xE9, al
+    
     iret
 
 ; Таблица указателей на заглушки (первые 48 векторов)
