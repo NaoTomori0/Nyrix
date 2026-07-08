@@ -16,23 +16,17 @@ extern uint32_t syscall_ecx;
 
 void user_task()
 {
-    // Простой тест: выводим символ '!' через syscall
-    const char msg = '!!!!';
-
-    // Устанавливаем регистры для syscall
-    uint32_t eax = 1;              // syscall номер 1 = write
-    uint32_t ebx = (uint32_t)&msg; // указатель на символ
-    uint32_t ecx = 1;              // длина = 1
-
-    // Копируем в глобальные переменные (так как int $0x80 не передаёт регистры)
+    // Простой тест: выводим символ в Ring 3
+    serial_putchar('U');  // Выведет 'U' если мы в Ring 3
+    
+    // Уходим обратно в ядро через int 0x80
+    uint32_t eax = 0;  // syscall 0 = exit
     syscall_eax = eax;
-    syscall_ebx = ebx;
-    syscall_ecx = ecx;
-
+    
     // Вызываем прерывание
     __asm__ volatile("int $0x80");
-
-    // Оставаемся в Ring 3
+    
+    // Если вернулись - зависаем
     while (1)
         __asm__ volatile("hlt");
 }
@@ -51,7 +45,7 @@ void switch_to_user_mode()
     // 3. Готовим стек для iret
     uint32_t user_stack_top = (uint32_t)(&user_stack[sizeof(user_stack)]);
     uint32_t *sp = (uint32_t *)(user_stack_top);
-
+    
     // Стек для IRET в правильном порядке: SS, ESP, EFLAGS, CS, EIP
     *(--sp) = 0x23;                 // SS (пользовательский сегмент данных)
     *(--sp) = user_stack_top;       // ESP (вершина стека пользователя)
@@ -64,8 +58,8 @@ void switch_to_user_mode()
     __asm__ volatile("1:");
 
     // 5. Переход в Ring 3
+    // ИСПРАВЛЕНИЕ: Убираем cli - iret сам восстановит IF из EFLAGS
     __asm__ volatile(
-        "cli\n\t"
         "mov %0, %%esp\n\t"
         "iret\n\t"
         : : "r"(sp));
