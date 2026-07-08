@@ -17,21 +17,21 @@ extern uint32_t syscall_ecx;
 void user_task()
 {
     // Простой тест: выводим символ '!' через syscall
-    const char msg = '!';
-    
+    const char msg = '!!!!';
+
     // Устанавливаем регистры для syscall
-    uint32_t eax = 1;      // syscall номер 1 = write
-    uint32_t ebx = (uint32_t)&msg;  // указатель на символ
-    uint32_t ecx = 1;      // длина = 1
-    
+    uint32_t eax = 1;              // syscall номер 1 = write
+    uint32_t ebx = (uint32_t)&msg; // указатель на символ
+    uint32_t ecx = 1;              // длина = 1
+
     // Копируем в глобальные переменные (так как int $0x80 не передаёт регистры)
     syscall_eax = eax;
     syscall_ebx = ebx;
     syscall_ecx = ecx;
-    
+
     // Вызываем прерывание
     __asm__ volatile("int $0x80");
-    
+
     // Оставаемся в Ring 3
     while (1)
         __asm__ volatile("hlt");
@@ -51,7 +51,7 @@ void switch_to_user_mode()
     // 3. Готовим стек для iret
     uint32_t user_stack_top = (uint32_t)(&user_stack[sizeof(user_stack)]);
     uint32_t *sp = (uint32_t *)(user_stack_top);
-    
+
     // Стек для IRET в правильном порядке: SS, ESP, EFLAGS, CS, EIP
     *(--sp) = 0x23;                 // SS (пользовательский сегмент данных)
     *(--sp) = user_stack_top;       // ESP (вершина стека пользователя)
