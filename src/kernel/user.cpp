@@ -13,17 +13,10 @@ extern uint32_t syscall_eax;
 extern uint32_t syscall_ebx;
 extern uint32_t syscall_ecx;
 
-// Прямой вывод в отладочный порт и COM1
+// Прямой вывод в отладочный порт
 static inline void debug_putchar(char c)
 {
-    // Bochs debug port
     __asm__ volatile("out %%al, $0xE9" : : "a"(c));
-    
-    // COM1 port 0x3F8
-    __asm__ volatile(
-        "mov $0x3F8, %%dx\n"
-        "out %%al, (%%dx)\n"
-        : : "a"(c) : "edx");
 }
 
 void user_task()
@@ -31,25 +24,14 @@ void user_task()
     debug_putchar('U');
     debug_putchar('\n');
     
-    // Уходим обратно в ядро через int 0x80
-    uint32_t eax = 0;
-    syscall_eax = eax;
-    
-    debug_putchar('C');
+    // Просто выводим символ и ждём
+    debug_putchar('W');
     debug_putchar('A');
-    debug_putchar('L');
-    debug_putchar('L');
-    debug_putchar('\n');
-    
-    // Вызываем прерывание
-    __asm__ volatile("int $0x80");
-    
-    debug_putchar('R');
-    debug_putchar('E');
+    debug_putchar('I');
     debug_putchar('T');
     debug_putchar('\n');
     
-    // Если вернулись - зависаем
+    // Зависаем на hlt - это безопасно в Ring 3
     while (1)
         __asm__ volatile("hlt");
 }
@@ -91,9 +73,9 @@ void switch_to_user_mode()
     debug_putchar('5');
     debug_putchar('\n');
 
-    // 5. Переход в Ring 3 БЕЗ cli
+    // 5. Переход в Ring 3
     uint32_t esp_val = (uint32_t)sp;
-    debug_putchar('X');  // Прямо перед iret
+    debug_putchar('X');
     debug_putchar('\n');
     
     __asm__ volatile(
