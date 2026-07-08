@@ -80,15 +80,15 @@ void switch_to_user_mode()
     serial_putchar('5');
     serial_putchar('\n');
 
-    // 5. Переход в Ring 3
-    // КРИТИЧНО: отключаем прерывания ПЕРЕД iret для безопасного перехода
+    // 5. Переход в Ring 3 БЕЗ cli -让iret自己处理
+    // Используем встроенную функцию asm для полного контроля над состоянием процессора
+    uint32_t esp_val = (uint32_t)sp;
     __asm__ volatile(
-        "cli\n\t"
-        "mov %0, %%esp\n\t"
-        "iret\n\t"
-        : : "r"(sp) : "memory");
+        "mov %0, %%esp\n\t"      // Загружаем новый ESP (указывает на стек iret)
+        "iret\n\t"               // Прыгаем в Ring 3, восстанавливая все флаги из EFLAGS
+        : : "r"(esp_val) : "memory");
 
-    // После возврата из Ring 3
+    // По��ле возврата из Ring 3
     serial_putchar('K');  // Kernel mode restored
     serial_putchar('\n');
 }
