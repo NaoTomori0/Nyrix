@@ -7,36 +7,47 @@
 __attribute__((aligned(16))) static uint8_t user_stack[16384];
 extern uint32_t kernel_esp;
 extern uint32_t return_eip;
-extern void serial_putchar(char c);
 
 // Глобальные переменные для системных вызовов
 extern uint32_t syscall_eax;
 extern uint32_t syscall_ebx;
 extern uint32_t syscall_ecx;
 
+// Прямой вывод в отладочный порт и COM1
+static inline void debug_putchar(char c)
+{
+    // Bochs debug port
+    __asm__ volatile("out %%al, $0xE9" : : "a"(c));
+    
+    // COM1 port 0x3F8
+    __asm__ volatile(
+        "mov $0x3F8, %%dx\n"
+        "out %%al, (%%dx)\n"
+        : : "a"(c) : "edx");
+}
+
 void user_task()
 {
-    // Простой тест: выводим символ в Ring 3
-    serial_putchar('U');  // Выведет 'U' если мы в Ring 3
-    serial_putchar('\n');
+    debug_putchar('U');
+    debug_putchar('\n');
     
     // Уходим обратно в ядро через int 0x80
-    uint32_t eax = 0;  // syscall 0 = exit
+    uint32_t eax = 0;
     syscall_eax = eax;
     
-    serial_putchar('C');  // О сейчас вызовем int 0x80
-    serial_putchar('A');
-    serial_putchar('L');
-    serial_putchar('L');
-    serial_putchar('\n');
+    debug_putchar('C');
+    debug_putchar('A');
+    debug_putchar('L');
+    debug_putchar('L');
+    debug_putchar('\n');
     
     // Вызываем прерывание
     __asm__ volatile("int $0x80");
     
-    serial_putchar('R');  // О вернулись из int 0x80
-    serial_putchar('E');
-    serial_putchar('T');
-    serial_putchar('\n');
+    debug_putchar('R');
+    debug_putchar('E');
+    debug_putchar('T');
+    debug_putchar('\n');
     
     // Если вернулись - зависаем
     while (1)
@@ -45,21 +56,21 @@ void user_task()
 
 void switch_to_user_mode()
 {
-    serial_putchar('1');  // Отладка: входим в switch_to_user_mode
-    serial_putchar('\n');
+    debug_putchar('1');
+    debug_putchar('\n');
     
     // 1. Сохраняем стек ядра
     __asm__ volatile("mov %%esp, %0" : "=r"(kernel_esp));
-    serial_putchar('2');
-    serial_putchar('\n');
+    debug_putchar('2');
+    debug_putchar('\n');
 
     // 2. Устанавливаем пользовательские сегменты данных
     __asm__ volatile("mov %0, %%ds" : : "r"(0x23));
     __asm__ volatile("mov %0, %%es" : : "r"(0x23));
     __asm__ volatile("mov %0, %%fs" : : "r"(0x23));
     __asm__ volatile("mov %0, %%gs" : : "r"(0x23));
-    serial_putchar('3');
-    serial_putchar('\n');
+    debug_putchar('3');
+    debug_putchar('\n');
 
     // 3. Готовим стек для iret
     uint32_t user_stack_top = (uint32_t)(&user_stack[sizeof(user_stack)]);
@@ -71,24 +82,25 @@ void switch_to_user_mode()
     *(--sp) = 0x202;                // EFLAGS (IF флаг установлен)
     *(--sp) = 0x1B;                 // CS (пользовательский сегмент кода)
     *(--sp) = (uint32_t)&user_task; // EIP
-    serial_putchar('4');
-    serial_putchar('\n');
+    debug_putchar('4');
+    debug_putchar('\n');
 
-    // 4. Сохраняем адрес возврата (для будущего exit)
+    // 4. Сохраняем адрес возврата
     __asm__ volatile("mov $1f, %0\n" : "=r"(return_eip) : : "memory");
     __asm__ volatile("1:");
-    serial_putchar('5');
-    serial_putchar('\n');
+    debug_putchar('5');
+    debug_putchar('\n');
 
-    // 5. Переход в Ring 3 БЕЗ cli -让iret自己处理
-    // Используем встроенную функцию asm для полного контроля над состоянием процессора
+    // 5. Переход в Ring 3 БЕЗ cli
     uint32_t esp_val = (uint32_t)sp;
+    debug_putchar('X');  // Прямо перед iret
+    debug_putchar('\n');
+    
     __asm__ volatile(
-        "mov %0, %%esp\n\t"      // Загружаем новый ESP (указывает на стек iret)
-        "iret\n\t"               // Прыгаем в Ring 3, восстанавливая все флаги из EFLAGS
+        "mov %0, %%esp\n\t"
+        "iret\n\t"
         : : "r"(esp_val) : "memory");
 
-    // По��ле возврата из Ring 3
-    serial_putchar('K');  // Kernel mode restored
-    serial_putchar('\n');
+    debug_putchar('K');
+    debug_putchar('\n');
 }
